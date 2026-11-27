@@ -9,8 +9,8 @@
     "typecheck": "npm run prisma:generate && tsc -p tsconfig.json --noEmit",
     "start": "node --enable-source-maps dist/main.js",
     "start:worker": "node --enable-source-maps dist/worker.js",
-    "test": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test": "npm run prisma:generate && vitest run --project unit",
+    "test:integration": "npm run prisma:generate && vitest run --project integration"
   },
   "dependencies": {
     "@etkinlik/shared": "0.0.0",
