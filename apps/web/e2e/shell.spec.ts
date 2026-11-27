@@ -92,6 +92,21 @@ test.describe('application shell', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
+  test('stays usable in landscape with 200% text size', async ({ page }) => {
+    await page.setViewportSize({ width: 812, height: 375 });
+    await mockHealth(page, 503);
+    await page.goto('/');
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    const retry = page.getByRole('button', { name: 'Yeniden dene' });
+    await retry.scrollIntoViewIfNeeded();
+    await expect(retry).toBeInViewport();
+  });
+
   test('links a web app manifest for installation', async ({ page, request }) => {
     await mockHealth(page, 200);
     await page.goto('/');

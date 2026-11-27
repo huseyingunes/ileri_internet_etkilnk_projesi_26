@@ -62,7 +62,7 @@ export function SystemStatus() {
           type="button"
           onClick={() => void refetch()}
           disabled={isFetching}
-          className="mt-md inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg bg-primary px-lg font-semibold text-on-primary disabled:cursor-wait motion-safe:transition-opacity hover:opacity-90"
+          className="mt-md inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg bg-primary px-lg font-semibold text-on-primary transition-opacity duration-150 hover:opacity-90 active:opacity-75 disabled:cursor-wait disabled:opacity-60"
         >
           {isFetching ? 'Deneniyor…' : 'Yeniden dene'}
         </button>
