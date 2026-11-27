@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '../../../design-system/etkinlik-platformu/tokens.css';
+
+/*
+ * Tailwind theme fed only by design-system tokens. Default palettes and fonts
+ * are reset so components cannot fall back to raw Tailwind colours; `inline`
+ * makes utilities reference the token variables directly.
+ *
+ * Tailwind also emits `--color-x: var(--color-x)` inside `@layer theme`. That
+ * declaration always loses to the unlayered :root in tokens.css (unlayered
+ * styles beat layered ones), so no cycle occurs. e2e/shell.spec.ts asserts the
+ * computed colours match the tokens to catch any regression.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-primary: var(--color-primary);
+  --color-on-primary: var(--color-on-primary);
+  --color-secondary: var(--color-secondary);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-accent: var(--color-accent);
+  --color-on-accent: var(--color-on-accent);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-card: var(--color-card);
+  --color-card-foreground: var(--color-card-foreground);
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-border: var(--color-border);
+  --color-input-border: var(--color-input-border);
+  --color-destructive: var(--color-destructive);
+  --color-on-destructive: var(--color-on-destructive);
+  --color-ring: var(--color-ring);
+
+  --font-*: initial;
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+
+  --spacing-xs: var(--space-xs);
+  --spacing-sm: var(--space-sm);
+  --spacing-md: var(--space-md);
+  --spacing-lg: var(--space-lg);
+  --spacing-xl: var(--space-xl);
+  --spacing-2xl: var(--space-2xl);
+  --spacing-3xl: var(--space-3xl);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.5;
+    /* Keeps fallback text the same visual size while the web font loads (no CLS).
+       Unsupported browsers simply render the fallback at its default scale. */
+    font-size-adjust: from-font;
+    overflow-wrap: break-word;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
