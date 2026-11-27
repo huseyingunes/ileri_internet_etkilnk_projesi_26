@@ -1,0 +1,27 @@
+rules:
+  - id: etkinlik-no-unsafe-raw-sql
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Building SQL from strings is forbidden. Use Prisma's tagged $queryRaw`...`
+      / $executeRaw`...` (parameterised) or the Prisma query API.
+    pattern-either:
+      - pattern: $DB.$queryRawUnsafe(...)
+      - pattern: $DB.$executeRawUnsafe(...)
+      - pattern: $DB.$queryRaw($X + $Y)
+      - pattern: $DB.$executeRaw($X + $Y)
+      - pattern: Prisma.raw(...)
+
+  - id: etkinlik-no-sql-string-concat
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: SQL text must not be assembled by concatenation or untagged template literals.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              "$SQL" + $X
+          - pattern: |
+              `$SQL${$X}...`
+      - metavariable-regex:
+          metavariable: $SQL
+          regex: (?i)^\s*(select|insert|update|delete|with|alter|drop|create)\b
