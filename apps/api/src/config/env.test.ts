@@ -5,7 +5,7 @@ const valid = {
   NODE_ENV: 'test',
   APP_ORIGIN: 'https://etkinlik.localhost',
   DATABASE_URL: 'postgresql://app:secret@localhost:5432/app',
-  REDIS_URL: 'redis://localhost:6379',
+  REDIS_URL: 'redis://localhost:6379', // nosemgrep: trailofbits.generic.redis-unencrypted-transport.redis-unencrypted-transport
 };
 
 describe('loadEnv', () => {

@@ -4,7 +4,7 @@ const positiveInt = z.coerce.number().int().positive();
 
 const secureUrl = z
   .url()
-  .refine((value) => new URL(value).protocol === 'https:', { message: 'must use https' });
+  .refine((value) => new URL(value).protocol === 'https:', { error: 'must use https' });
 
 /**
  * Environment contract. Every required value has no default; a missing or
@@ -16,10 +16,12 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
   APP_ORIGIN: secureUrl,
   DATABASE_URL: z.url().refine((value) => /^postgres(ql)?:\/\//.test(value), {
-    message: 'must be a postgres:// or postgresql:// URL',
+    error: 'must be a postgres:// or postgresql:// URL',
   }),
+  // Plain (non-TLS) Redis is accepted: it lives on an internal, single-host network (see compose.yaml).
   REDIS_URL: z.url().refine((value) => /^rediss?:\/\//.test(value), {
-    message: 'must be a redis:// or rediss:// URL',
+    // nosemgrep: trailofbits.generic.redis-unencrypted-transport.redis-unencrypted-transport
+    error: 'must be a redis:// or rediss:// URL',
   }),
   API_PORT: positiveInt.max(65_535).default(3000),
   API_DB_POOL_SIZE: positiveInt.max(100).default(10),

@@ -50,7 +50,12 @@ export function mapError(error: unknown, requestId: string): MappedError {
       error instanceof RateLimitedError ? { 'Retry-After': String(error.retryAfterSeconds) } : {};
     return {
       status: error.status,
-      body: { code: error.code, message: error.message, fieldErrors: [...error.fieldErrors], requestId },
+      body: {
+        code: error.code,
+        message: error.message,
+        fieldErrors: [...error.fieldErrors],
+        requestId,
+      },
       headers,
       internal: false,
     };
@@ -86,7 +91,12 @@ export function mapError(error: unknown, requestId: string): MappedError {
 
   return {
     status: 500,
-    body: { code: 'INTERNAL_ERROR', message: messageFor('INTERNAL_ERROR'), fieldErrors: [], requestId },
+    body: {
+      code: 'INTERNAL_ERROR',
+      message: messageFor('INTERNAL_ERROR'),
+      fieldErrors: [],
+      requestId,
+    },
     headers: {},
     internal: true,
   };

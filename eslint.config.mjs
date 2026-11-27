@@ -20,7 +20,10 @@ const bannedPackages = [
   'ws',
   'socket.io',
   'socket.io-client',
-].map((name) => ({ name, message: 'This package is excluded by the project stack (see CLAUDE.md).' }));
+].map((name) => ({
+  name,
+  message: 'This package is excluded by the project stack (see CLAUDE.md).',
+}));
 
 export default tseslint.config(
   {
@@ -34,6 +37,9 @@ export default tseslint.config(
       '.devcontainer/**',
       'docs/kaynak/**',
       'design-system/**',
+      'tools/semgrep/**',
+      '.tmp/**',
+      'apps/api/src/generated/**',
     ],
   },
   js.configs.recommended,
@@ -42,7 +48,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: { allowDefaultProject: ['eslint.config.mjs'] },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -60,11 +66,15 @@ export default tseslint.config(
       '@typescript-eslint/return-await': ['error', 'always'],
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
       'no-restricted-imports': ['error', { paths: bannedPackages }],
       'no-restricted-syntax': [
         'error',
         {
-          selector: "AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]",
+          selector: 'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]',
           message: 'innerHTML/outerHTML is forbidden; render user text as plain text.',
         },
         {
@@ -80,7 +90,7 @@ export default tseslint.config(
           message: 'Use the Temporal helpers from @etkinlik/shared instead of Date.',
         },
         {
-          selector: "CallExpression[callee.property.name=/^\\$(queryRawUnsafe|executeRawUnsafe)$/]",
+          selector: 'CallExpression[callee.property.name=/^\\$(queryRawUnsafe|executeRawUnsafe)$/]',
           message: 'Unsafe raw SQL is forbidden; use tagged $queryRaw / $executeRaw.',
         },
       ],
@@ -92,6 +102,8 @@ export default tseslint.config(
     rules: {
       // NestJS relies on class-based DI with empty module classes.
       '@typescript-eslint/no-extraneous-class': 'off',
+      // Nest option types are declared as classes but are meant to be passed as plain objects.
+      '@typescript-eslint/no-unsafe-class-instance-assignment': 'off',
     },
   },
   {
@@ -113,6 +125,8 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 );

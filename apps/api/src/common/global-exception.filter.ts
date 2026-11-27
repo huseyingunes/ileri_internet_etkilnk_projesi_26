@@ -6,15 +6,14 @@ import { mapError } from './error-body.js';
 /** The single global error handler: every failure leaves through here. */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  constructor(
-    @InjectPinoLogger(GlobalExceptionFilter.name) private readonly logger: PinoLogger,
-  ) {}
+  constructor(@InjectPinoLogger(GlobalExceptionFilter.name) private readonly logger: PinoLogger) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
-    const requestId = String(request.id);
+    // genReqId (common/logging.ts) always assigns a string id.
+    const requestId = typeof request.id === 'string' ? request.id : 'unknown';
 
     const mapped = mapError(exception, requestId);
     if (mapped.internal) {
@@ -26,6 +25,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (response.headersSent) {
       return;
     }
-    response.status(mapped.status).set(mapped.headers).set('Cache-Control', 'no-store').json(mapped.body);
+    response
+      .status(mapped.status)
+      .set(mapped.headers)
+      .set('Cache-Control', 'no-store')
+      .json(mapped.body);
   }
 }

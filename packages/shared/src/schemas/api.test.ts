@@ -18,7 +18,8 @@ describe('pageSizeSchema', () => {
 describe('errorBodySchema', () => {
   it('requires a request id', () => {
     expect(
-      errorBodySchema.safeParse({ code: 'x', message: 'y', fieldErrors: [], requestId: '' }).success,
+      errorBodySchema.safeParse({ code: 'x', message: 'y', fieldErrors: [], requestId: '' })
+        .success,
     ).toBe(false);
   });
 });

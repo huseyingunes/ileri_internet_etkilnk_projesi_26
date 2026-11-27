@@ -11,13 +11,22 @@ import type { Env } from '../config/env.js';
 import { createRedisConnection } from '../infra/redis.js';
 import { DEFAULT_JOB_OPTIONS, QUEUE_NAMES } from './queues.js';
 
+/** Jobs carry the originating request id so logs can be correlated end to end. */
+function requestIdOf(data: unknown): string | undefined {
+  if (typeof data === 'object' && data !== null && 'requestId' in data) {
+    const { requestId } = data;
+    return typeof requestId === 'string' ? requestId : undefined;
+  }
+  return undefined;
+}
+
 /**
  * Hosts the BullMQ workers. Phase 0 registers no job handlers yet; unknown
  * job names fail loudly instead of being silently dropped.
  */
 @Injectable()
 export class JobRunnerService implements OnApplicationBootstrap, OnApplicationShutdown {
-  private worker: Worker | undefined;
+  private worker: Worker<unknown> | undefined;
   private deadLetter: Queue | undefined;
 
   constructor(
@@ -29,12 +38,14 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
     this.deadLetter = new Queue(QUEUE_NAMES.deadLetter, {
       connection: createRedisConnection(this.env),
     });
-    this.worker = new Worker(QUEUE_NAMES.system, async (job) => this.process(job), {
+    this.worker = new Worker<unknown>(QUEUE_NAMES.system, (job) => this.process(job), {
       connection: createRedisConnection(this.env),
       concurrency: this.env.WORKER_CONCURRENCY,
     });
     this.worker.on('failed', (job, error) => {
-      void this.handleFailure(job, error);
+      this.handleFailure(job, error).catch((dlqError: unknown) => {
+        this.logger.error({ err: dlqError, jobId: job?.id }, 'ALERT: could not dead-letter job');
+      });
     });
     this.worker.on('error', (error) => {
       this.logger.error({ err: error }, 'Worker error');
@@ -42,11 +53,11 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
     this.logger.info({ queue: QUEUE_NAMES.system }, 'Worker started');
   }
 
-  private process(job: Job): Promise<void> {
+  private process(job: Job<unknown>): Promise<void> {
     return Promise.reject(new Error(`No handler registered for job "${job.name}"`));
   }
 
-  private async handleFailure(job: Job | undefined, error: Error): Promise<void> {
+  private async handleFailure(job: Job<unknown> | undefined, error: Error): Promise<void> {
     if (job === undefined) {
       return;
     }
@@ -55,7 +66,7 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
       return;
     }
     this.logger.error(
-      { err: error, jobId: job.id, jobName: job.name, requestId: job.data?.requestId },
+      { err: error, jobId: job.id, jobName: job.name, requestId: requestIdOf(job.data) },
       'ALERT: job exhausted retries; moved to dead-letter queue',
     );
     await this.deadLetter?.add(job.name, {
