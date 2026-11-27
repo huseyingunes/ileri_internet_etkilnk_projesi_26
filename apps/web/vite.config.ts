@@ -63,6 +63,8 @@ export default defineConfig({
   build: {
     target: 'es2023',
     sourcemap: true,
+    // Never inline assets as data: URLs; the CSP (font-src/img-src 'self') would block them.
+    assetsInlineLimit: 0,
   },
   server: {
     proxy: {

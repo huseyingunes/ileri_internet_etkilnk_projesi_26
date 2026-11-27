@@ -12,13 +12,13 @@ services:
       NODE_ENV: development
 
   postgres:
-    ports: ['127.0.0.1:5432:5432']
+    ports: ['127.0.0.1:${DEV_POSTGRES_PORT:-5432}:5432']
 
   redis:
-    ports: ['127.0.0.1:6379:6379']
+    ports: ['127.0.0.1:${DEV_REDIS_PORT:-6379}:6379']
 
   garage:
-    ports: ['127.0.0.1:3900:3900']
+    ports: ['127.0.0.1:${DEV_GARAGE_PORT:-3900}:3900']
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2
@@ -26,6 +26,6 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER is required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
-    ports: ['127.0.0.1:8080:8080']
+    ports: ['127.0.0.1:${DEV_KEYCLOAK_PORT:-8080}:8080']
     security_opt: [no-new-privileges:true]
     networks: [edge]

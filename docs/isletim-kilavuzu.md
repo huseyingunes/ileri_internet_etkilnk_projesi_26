@@ -29,19 +29,20 @@ devcontainer exec --workspace-folder . npm run test:e2e
 `.env.example` dosyasını `.env` olarak kopyalayın ve **tüm** değerleri doldurun.
 Gizli değerlerin varsayılanı yoktur; eksik değer varsa Compose da uygulama da başlamaz.
 
-| Değişken                                         | Zorunlu        | Açıklama                                                                                              |
-| ------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------- |
-| `APP_ORIGIN`                                     | Evet           | Tek origin, yalnızca `https://`. Yerel: `https://etkinlik.localhost`, üretim: `https://haber10da.net` |
-| `SITE_ADDRESS`                                   | Evet           | `APP_ORIGIN`'in host kısmı (Caddy TLS için)                                                           |
-| `POSTGRES_USER`, `POSTGRES_DB`                   | Evet           | Veritabanı kullanıcısı ve adı                                                                         |
-| `POSTGRES_PASSWORD`                              | Evet           | URL'de güvenli karakterler kullanın (ör. `openssl rand -hex 32`)                                      |
-| `REDIS_PASSWORD`                                 | Evet           | Redis parolası                                                                                        |
-| `GARAGE_RPC_SECRET`                              | Evet           | Tam 64 onaltılık karakter (`openssl rand -hex 32`)                                                    |
-| `GARAGE_ADMIN_TOKEN`                             | Evet           | Garage yönetim API belirteci                                                                          |
-| `API_DB_POOL_SIZE`, `WORKER_DB_POOL_SIZE`        | Hayır          | Bağlantı havuzu boyutları (pozitif tam sayı; varsayılan 10 ve 5)                                      |
-| `LOG_LEVEL`                                      | Hayır          | `info` (varsayılan), `debug` vb.                                                                      |
-| `SENTRY_DSN`                                     | Hayır          | Boşsa Sentry kapalıdır. Kişisel veri gönderilmez.                                                     |
-| `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD` | Yalnızca yerel | `compose.dev.yaml` içindeki Keycloak için                                                             |
+| Değişken                                                                      | Zorunlu        | Açıklama                                                                                                                                  |
+| ----------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                                                  | Evet           | Tek origin, yalnızca `https://`. Yerel: `https://etkinlik.localhost`, üretim: `https://haber10da.net`                                     |
+| `SITE_ADDRESS`                                                                | Evet           | `APP_ORIGIN`'in host kısmı (Caddy TLS için)                                                                                               |
+| `POSTGRES_USER`, `POSTGRES_DB`                                                | Evet           | Veritabanı kullanıcısı ve adı                                                                                                             |
+| `POSTGRES_PASSWORD`                                                           | Evet           | URL'de güvenli karakterler kullanın (ör. `openssl rand -hex 32`)                                                                          |
+| `REDIS_PASSWORD`                                                              | Evet           | Redis parolası                                                                                                                            |
+| `GARAGE_RPC_SECRET`                                                           | Evet           | Tam 64 onaltılık karakter (`openssl rand -hex 32`)                                                                                        |
+| `GARAGE_ADMIN_TOKEN`                                                          | Evet           | Garage yönetim API belirteci                                                                                                              |
+| `API_DB_POOL_SIZE`, `WORKER_DB_POOL_SIZE`                                     | Hayır          | Bağlantı havuzu boyutları (pozitif tam sayı; varsayılan 10 ve 5)                                                                          |
+| `LOG_LEVEL`                                                                   | Hayır          | `info` (varsayılan), `debug` vb.                                                                                                          |
+| `SENTRY_DSN`                                                                  | Hayır          | Boşsa Sentry kapalıdır. Kişisel veri gönderilmez.                                                                                         |
+| `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`                              | Yalnızca yerel | `compose.dev.yaml` içindeki Keycloak için                                                                                                 |
+| `DEV_POSTGRES_PORT`, `DEV_REDIS_PORT`, `DEV_GARAGE_PORT`, `DEV_KEYCLOAK_PORT` | Yalnızca yerel | Ana makinede `127.0.0.1`'e açılan port'lar (varsayılan 5432, 6379, 3900, 8080). Makinede başka bir PostgreSQL vb. çalışıyorsa değiştirin. |
 
 ## Yığını çalıştırma
 
