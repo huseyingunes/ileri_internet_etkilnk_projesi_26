@@ -78,6 +78,27 @@ describe('default-deny and error body', () => {
     expect(body.requestId).toBe(response.headers.get('x-request-id'));
   });
 
+  it('ignores a client-supplied request id', async () => {
+    const forged = '00000000-0000-0000-0000-000000000000';
+    const response = await fetch(`${baseUrl}/api/v1/health/live`, {
+      headers: { 'X-Request-Id': forged },
+    });
+    expect(response.headers.get('x-request-id')).not.toBe(forged);
+  });
+
+  it('returns 400 with a request id for malformed JSON', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/health/live`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{bad',
+    });
+    expect(response.status).toBe(400);
+    const body = errorBodySchema.parse(await response.json());
+    expect(body.code).toBe('BAD_REQUEST');
+    expect(body.requestId).toBe(response.headers.get('x-request-id'));
+    expect(body.requestId).not.toBe('unknown');
+  });
+
   it('rejects oversized JSON bodies without leaking details', async () => {
     const response = await fetch(`${baseUrl}/api/v1/health/live`, {
       method: 'POST',

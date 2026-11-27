@@ -27,6 +27,8 @@
 
 	handle /api/* {
 		reverse_proxy {$API_UPSTREAM} {
+			# The API generates request ids itself; never forward a client-supplied one.
+			header_up -X-Request-Id
 			# Liveness of the upstream is checked by Compose; Caddy only retries briefly on deploy.
 			lb_try_duration 5s
 		}

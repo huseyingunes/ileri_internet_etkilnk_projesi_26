@@ -1,8 +1,10 @@
 import 'reflect-metadata';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { assignRequestId } from './common/logging.js';
 import type { Env } from './config/env.js';
 
 export const API_PREFIX = 'api/v1';
@@ -12,6 +14,11 @@ export async function createApp(env: Env): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env), {
     bufferLogs: true,
     bodyParser: false,
+  });
+  // First middleware: every request gets a server-generated id before anything can reject it.
+  app.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    assignRequestId(req, res);
+    next();
   });
   app.useLogger(app.get(Logger));
 
