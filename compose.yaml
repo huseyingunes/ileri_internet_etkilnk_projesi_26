@@ -94,6 +94,19 @@ services:
       redis: { condition: service_healthy }
     networks: [edge, data]
 
+  # Schema migrations: `docker compose run --rm migrate` (after a backup).
+  migrate:
+    build: { context: ., dockerfile: apps/api/Dockerfile, target: migrate }
+    image: etkinlik/migrate:local
+    profiles: [tools]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [data]
+
   postgres:
     image: postgres:18.7-trixie
     restart: unless-stopped

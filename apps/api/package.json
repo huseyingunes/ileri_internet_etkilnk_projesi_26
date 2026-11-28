@@ -6,6 +6,7 @@
   "scripts": {
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
     "typecheck": "npm run prisma:generate && tsc -p tsconfig.json --noEmit",
     "start": "node --enable-source-maps dist/main.js",
     "start:worker": "node --enable-source-maps dist/worker.js",
