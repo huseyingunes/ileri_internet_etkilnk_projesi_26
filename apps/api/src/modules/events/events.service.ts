@@ -4,6 +4,7 @@ import {
   categorySchema,
   type CommunitySummary,
   type EventStatus,
+  type Instant,
   eventStatusSchema,
   type Page,
   type PageQuery,
@@ -331,6 +332,50 @@ export class EventsService {
   /** For other modules (voting, applications, attendance): internal facts of an event. */
   async findInternal(publicId: string) {
     return await this.db.events.findUnique({ where: { public_id: publicId } });
+  }
+
+  /** For reminders: calendar events starting within [from, to). */
+  async scheduledStartingBetween(from: Instant, to: Instant) {
+    return await this.db.events.findMany({
+      where: { status: 'scheduled', starts_at: { gte: toDbDate(from), lt: toDbDate(to) } },
+      select: { id: true, public_id: true, title: true, starts_at: true, location_name: true },
+    });
+  }
+
+  /** Titles and public ids for events referenced by other modules. */
+  async titles(ids: readonly bigint[]): Promise<Map<bigint, { publicId: string; title: string }>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db.events.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      select: { id: true, public_id: true, title: true },
+    });
+    return new Map(rows.map((r) => [r.id, { publicId: r.public_id, title: r.title }]));
+  }
+
+  /** Tag ids per event, in one query. */
+  async tagIdsOfMany(eventIds: readonly bigint[]): Promise<Map<bigint, bigint[]>> {
+    if (eventIds.length === 0) return new Map();
+    const rows = await this.db.event_tags.findMany({
+      where: { event_id: { in: [...new Set(eventIds)] } },
+    });
+    const map = new Map<bigint, bigint[]>();
+    for (const row of rows) map.set(row.event_id, [...(map.get(row.event_id) ?? []), row.tag_id]);
+    return map;
+  }
+
+  /** Tag ids for names, creating missing tags (shared vocabulary with interests). */
+  async ensureTags(names: readonly string[]): Promise<bigint[]> {
+    const ids: bigint[] = [];
+    for (const name of [...new Set(names)]) {
+      const tag = await this.db.tags.upsert({ where: { name }, create: { name }, update: {} });
+      ids.push(tag.id);
+    }
+    return ids;
+  }
+
+  async tagIdsOf(eventId: bigint): Promise<bigint[]> {
+    const rows = await this.db.event_tags.findMany({ where: { event_id: eventId } });
+    return rows.map((r) => r.tag_id);
   }
 
   async findInternalById(id: bigint) {

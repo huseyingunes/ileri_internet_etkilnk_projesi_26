@@ -258,6 +258,16 @@ export class ScoringService {
     return result.count;
   }
 
+  /** Net points per student written for an event (excluding reversals). */
+  async pointsByStudentFor(eventId: bigint): Promise<Map<bigint, number>> {
+    const rows = await this.db.score_ledger.groupBy({
+      by: ['student_user_id'],
+      where: { event_id: eventId, rule_code: { not: 'excuse_reversal' } },
+      _sum: { points: true },
+    });
+    return new Map(rows.map((r) => [r.student_user_id, r._sum.points ?? 0]));
+  }
+
   /** Entries of one student for one event (used when an excuse is approved late). */
   async entriesFor(studentId: bigint, eventId: bigint) {
     const rows = await this.db.score_ledger.findMany({

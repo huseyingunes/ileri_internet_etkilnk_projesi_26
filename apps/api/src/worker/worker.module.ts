@@ -13,6 +13,10 @@ import { AttendanceModule } from '../modules/attendance/attendance.module.js';
 import { EventCompletedModule } from '../modules/attendance/event-completed.js';
 import { IdentityModule } from '../modules/identity/identity.module.js';
 import { MediaProcessor } from '../modules/media/media.processor.js';
+import { MessagingModule } from '../infra/messaging.js';
+import { NotificationJobsModule } from '../modules/notifications/notification.jobs.js';
+import { NotificationsModule } from '../modules/notifications/notifications.module.js';
+import { EventsModule } from '../modules/events/events.module.js';
 import { FeedbackJobs } from '../modules/feedback/feedback.jobs.js';
 import { FeedbackModule } from '../modules/feedback/feedback.module.js';
 import { ScoringJobs } from '../modules/scoring/scoring.jobs.js';
@@ -40,7 +44,11 @@ export class WorkerModule {
         HealthModule,
         IdentityModule,
         ApplicationsQueryModule,
+        MessagingModule,
+        NotificationsModule,
+        NotificationJobsModule,
         SettingsModule,
+        EventsModule,
         VotingModule,
         AttendanceModule,
         EventCompletedModule,

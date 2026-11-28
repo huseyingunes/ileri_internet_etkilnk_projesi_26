@@ -14,6 +14,7 @@ import { DatabaseService } from '../../infra/database.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { type EventSummaryView, EventsService } from '../events/events.service.js';
 import { UsersService } from '../identity/users.service.js';
+import { Notifier } from '../notifications/notifier.service.js';
 import {
   type ApplicationView,
   ApplicationsQuery,
@@ -41,6 +42,7 @@ export class ApplicationsService {
     private readonly events: EventsService,
     private readonly users: UsersService,
     private readonly query: ApplicationsQuery,
+    private readonly notifier: Notifier,
   ) {}
 
   private async lockEvent(tx: Prisma.TransactionClient, eventId: bigint) {
@@ -95,6 +97,18 @@ export class ApplicationsService {
       return { created: true, row };
     });
 
+    if (result.created && result.row.status === 'confirmed') {
+      await this.notifier.notify([
+        {
+          userId: caller.userId,
+          type: 'application_confirmed',
+          title: 'Başvurunuz onaylandı',
+          body: `"${event.title}" etkinliğine başvurunuz onaylandı. Katılımınızı QR kodu ve konumla doğrulamayı unutmayın.`,
+          link: `/etkinlikler/${eventPublicId}`,
+          dedupeKey: `application_confirmed:${result.row.public_id}:${isoFromDb(result.row.applied_at)}`,
+        },
+      ]);
+    }
     const rank =
       result.row.status === 'waitlisted' && result.row.waitlist_position !== null
         ? await this.query.rankOnWaitlist(event.id, result.row.waitlist_position)
@@ -118,26 +132,37 @@ export class ApplicationsService {
     if (event.status === 'completed')
       throw new ConflictError('Gerçekleşmiş etkinliğin başvurusu iptal edilemez.');
 
-    await this.db.$transaction(async (tx) => {
+    const promoted = await this.db.$transaction(async (tx) => {
       await this.lockEvent(tx, row.event_id);
       const current = await tx.applications.findUniqueOrThrow({ where: { id: row.id } });
-      if (current.status === 'cancelled') return;
+      if (current.status === 'cancelled') return null;
       await tx.applications.update({
         where: { id: row.id },
         data: { status: 'cancelled', waitlist_position: null, cancelled_at: nowForDb() },
       });
-      if (current.status !== 'confirmed') return;
+      if (current.status !== 'confirmed') return null;
       const next = await tx.applications.findFirst({
         where: { event_id: row.event_id, status: 'waitlisted' },
         orderBy: { waitlist_position: 'asc' },
       });
-      if (next !== null) {
-        await tx.applications.update({
-          where: { id: next.id },
-          data: { status: 'confirmed', waitlist_position: null, confirmed_at: nowForDb() },
-        });
-      }
+      if (next === null) return null;
+      return await tx.applications.update({
+        where: { id: next.id },
+        data: { status: 'confirmed', waitlist_position: null, confirmed_at: nowForDb() },
+      });
     });
+    if (promoted !== null) {
+      await this.notifier.notify([
+        {
+          userId: promoted.student_user_id,
+          type: 'application_promoted',
+          title: 'Bekleme listesinden yer açıldı',
+          body: `"${event.title}" etkinliğinde yer açıldı; başvurunuz onaylandı.`,
+          link: `/etkinlikler/${event.public_id}`,
+          dedupeKey: `application_promoted:${promoted.public_id}:${isoFromDb(promoted.applied_at)}`,
+        },
+      ]);
+    }
   }
 
   /** Advisor of the event (or admin): who applied and who is waiting. */

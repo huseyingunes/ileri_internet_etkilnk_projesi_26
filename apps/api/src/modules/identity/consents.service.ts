@@ -42,6 +42,16 @@ export class ConsentsService {
   }
 
   /** Idempotent: an active consent for the same text version is returned unchanged. */
+  /** Users among `ids` with an active consent of this kind (one query). */
+  async grantedAmong(ids: readonly bigint[], kind: ConsentKind): Promise<Set<bigint>> {
+    if (ids.length === 0) return new Set();
+    const rows = await this.db.consents.findMany({
+      where: { user_id: { in: [...ids] }, kind, revoked_at: null },
+      select: { user_id: true },
+    });
+    return new Set(rows.map((r) => r.user_id));
+  }
+
   async grant(userId: bigint, kind: ConsentKind, textVersion: string): Promise<ConsentView> {
     const row = await this.db.$transaction(async (tx) => {
       const active = await tx.consents.findFirst({
