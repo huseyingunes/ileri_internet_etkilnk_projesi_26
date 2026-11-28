@@ -19,3 +19,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0010](0010-api-sozlesmesi.md)          | API sözleşmesi kararları                      | Kabul edildi |
 | [0011](0011-keycloak-demo-sso.md)       | Keycloak demo "üniversite SSO'su" olarak      | Kabul edildi |
 | [0012](0012-medya-ve-depolama.md)       | Görsel işleme ve nesne depolama kütüphaneleri | Kabul edildi |
+| [0013](0013-oylama-kararlari.md)        | Oylama kararları                              | Kabul edildi |

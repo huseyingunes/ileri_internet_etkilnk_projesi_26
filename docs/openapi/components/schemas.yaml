@@ -505,7 +505,10 @@ BallotEntry:
   additionalProperties: false
   required: [id, event]
   properties:
-    id: { type: string, description: Oylama girişinin kimliği (gün + kategori + etkinlik). }
+    id:
+      type: string
+      format: uuid
+      description: Oylama girişinin kimliği; o günün oylamasındaki etkinliğin kimliğidir.
     event: { $ref: '#/EventSummary' }
     voteCount:
       type: [integer, 'null']
@@ -552,7 +555,10 @@ VoteCreate:
   additionalProperties: false
   required: [ballotEntryId]
   properties:
-    ballotEntryId: { type: string, minLength: 1, maxLength: 64 }
+    ballotEntryId:
+      type: string
+      format: uuid
+      description: Bugünün oylamasındaki etkinliğin kimliği.
 Vote:
   type: object
   additionalProperties: false
@@ -565,7 +571,7 @@ Vote:
 VotingResult:
   type: object
   additionalProperties: false
-  required: [id, date, category, status, totalVotes, entries]
+  required: [id, date, category, status, totalVotes, tiedEventIds, entries]
   properties:
     id: { $ref: '#/PublicId' }
     date: { type: string, format: date }
@@ -576,6 +582,10 @@ VotingResult:
       description: '`tie_pending`: eşitlik var, kararı yönetici verecek.'
     totalVotes: { type: integer, minimum: 0 }
     winner: { $ref: '#/EventSummary' }
+    tiedEventIds:
+      type: array
+      description: Eşitlik varsa eşit oy alan etkinlikler; yönetici yalnızca bunlardan birini seçebilir.
+      items: { $ref: '#/PublicId' }
     entries:
       type: array
       items:
