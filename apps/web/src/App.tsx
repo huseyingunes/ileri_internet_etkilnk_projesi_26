@@ -1,8 +1,19 @@
+import { useQuery } from '@tanstack/react-query';
+import type { Role } from '@etkinlik/shared';
+import type { ReactNode } from 'react';
+import { fetchMe, loginHref } from './api/session';
 import { AccountMenu } from './components/AccountMenu';
 import { SystemStatus } from './components/SystemStatus';
+import { EventCreatePage } from './pages/EventCreatePage';
+import { EventDetailPage } from './pages/EventDetailPage';
+import { EventsPage } from './pages/EventsPage';
+import { ReviewsPage } from './pages/ReviewsPage';
+import { Link, matchPath, useLocation } from './router';
+import { buttonClass, StatusMessage } from './ui';
 
 function LoginFailedNotice() {
-  if (new URLSearchParams(window.location.search).get('giris') !== 'hata') {
+  const { search } = useLocation();
+  if (search.get('giris') !== 'hata') {
     return null;
   }
   return (
@@ -19,7 +30,81 @@ function LoginFailedNotice() {
   );
 }
 
+interface NavItem {
+  href: string;
+  label: string;
+  roles: Role[];
+}
+
+const NAV: NavItem[] = [
+  { href: '/etkinlikler', label: 'Etkinlikler', roles: ['student', 'advisor', 'admin'] },
+  { href: '/etkinlikler/yeni', label: 'Etkinlik öner', roles: ['student', 'advisor', 'admin'] },
+  { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
+];
+
+function MainNav({ role, pathname }: { role: Role; pathname: string }) {
+  const items = NAV.filter((item) => item.roles.includes(role));
+  return (
+    <nav aria-label="Ana gezinme" className="border-b border-border bg-card">
+      <ul className="mx-auto flex max-w-5xl gap-xs overflow-x-auto px-md">
+        {items.map((item) => (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              aria-current={pathname === item.href ? 'page' : undefined}
+              className="inline-flex min-h-11 items-center border-b-2 border-transparent px-sm font-semibold text-muted-foreground aria-[current=page]:border-primary aria-[current=page]:text-foreground"
+            >
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function Home({ signedIn }: { signedIn: boolean }) {
+  return (
+    <>
+      <h1 className="text-3xl font-bold text-foreground">Hoş geldiniz</h1>
+      <p className="mt-sm max-w-prose text-muted-foreground">
+        Bilim, kültür ve spor etkinliklerini oylayabileceğiniz, başvurabileceğiniz ve katılımınızı
+        doğrulayabileceğiniz platform.
+      </p>
+      <div className="mt-lg">
+        {signedIn ? (
+          <Link href="/etkinlikler" className={buttonClass()}>
+            Etkinliklere göz atın
+          </Link>
+        ) : (
+          <a href={loginHref(window.location)} className={buttonClass()}>
+            Kurumsal hesabınızla giriş yapın
+          </a>
+        )}
+      </div>
+      <div className="mt-xl">
+        <SystemStatus />
+      </div>
+    </>
+  );
+}
+
+function Routes({ role }: { role: Role }): ReactNode {
+  const { pathname } = useLocation();
+  if (pathname === '/etkinlikler') return <EventsPage />;
+  if (pathname === '/etkinlikler/yeni') return <EventCreatePage role={role} />;
+  if (pathname === '/onaylar' && role !== 'student') return <ReviewsPage />;
+  const detail = matchPath('/etkinlikler/:id', pathname);
+  if (detail?.['id'] !== undefined) return <EventDetailPage key={detail['id']} id={detail['id']} />;
+  if (pathname === '/') return <Home signedIn />;
+  return <StatusMessage tone="error">Sayfa bulunamadı.</StatusMessage>;
+}
+
 export function App() {
+  const { pathname } = useLocation();
+  const me = useQuery({ queryKey: ['me'], queryFn: ({ signal }) => fetchMe(signal), retry: 1 });
+  const role = me.data?.role;
+
   return (
     <>
       <a
@@ -31,21 +116,20 @@ export function App() {
 
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-md px-md py-sm">
-          <p className="font-heading text-lg font-bold text-primary">Etkinlik Platformu</p>
+          <Link href="/" className="font-heading text-lg font-bold text-primary">
+            Etkinlik Platformu
+          </Link>
           <AccountMenu />
         </div>
       </header>
+      {role !== undefined && <MainNav role={role} pathname={pathname} />}
 
       <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-md py-xl outline-none">
         <LoginFailedNotice />
-        <h1 className="text-3xl font-bold text-foreground">Hoş geldiniz</h1>
-        <p className="mt-sm max-w-prose text-muted-foreground">
-          Bilim, kültür ve spor etkinliklerini oylayabileceğiniz, başvurabileceğiniz ve katılımınızı
-          doğrulayabileceğiniz platform hazırlanıyor.
-        </p>
-        <div className="mt-xl">
-          <SystemStatus />
-        </div>
+        {me.status === 'pending' && <StatusMessage>Yükleniyor…</StatusMessage>}
+        {me.status === 'error' && <Home signedIn={false} />}
+        {me.status === 'success' &&
+          (role === undefined ? <Home signedIn={false} /> : <Routes role={role} />)}
       </main>
 
       <footer className="mx-auto max-w-5xl px-md py-lg text-sm text-muted-foreground">
