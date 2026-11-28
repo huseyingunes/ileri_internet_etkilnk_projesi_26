@@ -52,6 +52,7 @@ export async function startTestApp(options: { worker?: boolean } = {}): Promise<
     OIDC_CLIENT_SECRET: 'feature-tests-secret-0123456789',
     INITIAL_ADMIN_EMAIL: 'admin@uni.example',
     STORAGE_DRIVER: 'memory',
+    QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
     WORKER_HEALTH_PORT: '39101',
   });
   const app = await createApp(env);

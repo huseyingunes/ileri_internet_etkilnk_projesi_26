@@ -30,6 +30,7 @@ beforeAll(async () => {
     OIDC_CLIENT_SECRET: 'health-test-secret-0123456789',
     INITIAL_ADMIN_EMAIL: 'admin@uni.example',
     STORAGE_DRIVER: 'memory',
+    QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
   });
   const started = await createApp(env);
   app = started;

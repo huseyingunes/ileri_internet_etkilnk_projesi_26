@@ -46,6 +46,8 @@ export const envSchema = z
     INITIAL_ADMIN_EMAIL: z.email().transform((value) => value.toLowerCase()),
     SESSION_IDLE_SECONDS: positiveInt.max(86_400).default(1_800),
     SESSION_ABSOLUTE_SECONDS: positiveInt.max(604_800).default(43_200),
+    // HMAC key for attendance QR tokens (at least 32 characters, no default).
+    QR_SIGNING_SECRET: z.string().min(32).max(512),
     // Object storage (Garage, S3 compatible). `memory` is for tests/local only.
     STORAGE_DRIVER: z.enum(['s3', 'memory']).default('s3'),
     S3_ENDPOINT: z.url().optional(),

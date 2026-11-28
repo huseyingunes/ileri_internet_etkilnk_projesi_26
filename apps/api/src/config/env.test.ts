@@ -11,6 +11,7 @@ const valid = {
   OIDC_CLIENT_SECRET: '0123456789abcdef0123456789abcdef',
   INITIAL_ADMIN_EMAIL: 'Admin@Uni.Example',
   STORAGE_DRIVER: 'memory',
+  QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
 };
 
 describe('loadEnv', () => {

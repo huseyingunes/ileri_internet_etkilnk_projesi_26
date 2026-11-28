@@ -1380,7 +1380,16 @@ paths:
             application/json:
               schema: { $ref: './components/schemas.yaml#/AttendanceScanResult' }
         '401': { $ref: './components/responses.yaml#/Unauthenticated' }
-        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '403':
+          description: Rol yetkisi yok ya da konum açık rızası verilmemiş.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ErrorBody' }
+        '409':
+          description: Öğrencinin bu etkinliğe onaylı başvurusu yok.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ErrorBody' }
         '422': { $ref: './components/responses.yaml#/ValidationFailed' }
         '429': { $ref: './components/responses.yaml#/RateLimited' }
   /events/{eventId}/attendances:

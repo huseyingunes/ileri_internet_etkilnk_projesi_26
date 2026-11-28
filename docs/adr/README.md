@@ -20,3 +20,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0011](0011-keycloak-demo-sso.md)       | Keycloak demo "üniversite SSO'su" olarak      | Kabul edildi |
 | [0012](0012-medya-ve-depolama.md)       | Görsel işleme ve nesne depolama kütüphaneleri | Kabul edildi |
 | [0013](0013-oylama-kararlari.md)        | Oylama kararları                              | Kabul edildi |
+| [0014](0014-katilim-dogrulama.md)       | Katılım doğrulama: QR, konum ve süre          | Kabul edildi |

@@ -4,7 +4,17 @@ import { type SyntheticEvent, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
 import { cancelEvent, getEvent, getMedia, reviewEvent, setCover, uploadImage } from '../api/events';
 import { ApplyPanel } from '../components/ApplyPanel';
-import { Badge, Button, Card, Picture, StatusMessage, TextArea, TextField } from '../ui';
+import { Link } from '../router';
+import {
+  Badge,
+  Button,
+  buttonClass,
+  Card,
+  Picture,
+  StatusMessage,
+  TextArea,
+  TextField,
+} from '../ui';
 
 function ReasonDialog({
   title,
@@ -274,6 +284,11 @@ export function EventDetailPage({ id, role }: { id: string; role: Role }) {
                 Reddet
               </Button>
             </>
+          )}
+          {data.viewer.canManagePhotos && data.status === 'scheduled' && (
+            <Link href={`/etkinlikler/${data.id}/qr`} className={buttonClass('accent')}>
+              Katılım QR kodunu göster
+            </Link>
           )}
           {data.viewer.canManagePhotos &&
             data.status !== 'cancelled' &&
