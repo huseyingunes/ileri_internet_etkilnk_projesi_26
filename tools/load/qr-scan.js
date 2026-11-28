@@ -42,8 +42,9 @@ export default function () {
   };
   const body = JSON.stringify({
     token: prep.qrToken,
-    latitude: prep.location.latitude + (Math.random() - 0.5) * 0.0004,
-    longitude: prep.location.longitude + (Math.random() - 0.5) * 0.0004,
+    // Deterministic spread of a few metres around the venue (no randomness needed).
+    latitude: prep.location.latitude + ((index % 9) - 4) * 0.00005,
+    longitude: prep.location.longitude + ((index % 7) - 3) * 0.00005,
     accuracyM: 15,
   });
   const first = http.post(`${base}/api/v1/attendance-scans`, body, params);

@@ -40,4 +40,4 @@ REFRESH MATERIALIZED VIEW analytics_non_attendance_reasons;
 SQL
 
 "${compose[@]}" start caddy api worker >/dev/null
-echo "Restored. Check: curl -k \$APP_ORIGIN/api/v1/health/ready and run the data checks in docs/isletim-kilavuzu.md."
+echo "Restored. Check GET /api/v1/health/ready on APP_ORIGIN and run the data checks in docs/isletim-kilavuzu.md."

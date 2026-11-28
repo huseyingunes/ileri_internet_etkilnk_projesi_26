@@ -60,7 +60,7 @@ export default function (data) {
     tags: { name: 'ballot' },
   });
   check(ballot, { 'ballot 200': (r) => r.status === 200 });
-  const entry = data.entries[Math.floor(Math.random() * data.entries.length)];
+  const entry = data.entries[index % data.entries.length];
   const vote = http.post(`${base}/api/v1/votes`, JSON.stringify({ ballotEntryId: entry }), {
     headers: headers(session),
     tags: { name: 'vote' },
