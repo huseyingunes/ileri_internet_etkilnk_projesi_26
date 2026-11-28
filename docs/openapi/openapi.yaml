@@ -561,6 +561,28 @@ paths:
         '409': { $ref: './components/responses.yaml#/Conflict' }
         '422': { $ref: './components/responses.yaml#/ValidationFailed' }
 
+  /advisors:
+    get:
+      tags: [users]
+      operationId: listAdvisors
+      summary: Danışmanlar (öneri formunda seçim için; yalnızca ad ve rol)
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      responses:
+        '200':
+          description: Etkin danışmanlar, ada göre sıralı (en fazla 200).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 200
+                    items: { $ref: './components/schemas.yaml#/UserSummary' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+
   # --- Communities ------------------------------------------------------------
   /communities:
     get:
