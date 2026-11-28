@@ -376,6 +376,7 @@ model ratings {
   score           Int      @db.SmallInt
   comment         String?
   created_at      DateTime @default(now()) @db.Timestamptz(6)
+  public_id       String   @unique @default(dbgenerated("uuidv7()")) @db.Uuid
   events          events   @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users           users    @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -401,6 +402,7 @@ model reason_prompts {
   student_user_id BigInt
   kind            String
   sent_at         DateTime        @default(now()) @db.Timestamptz(6)
+  public_id       String          @unique @default(dbgenerated("uuidv7()")) @db.Uuid
   reason_answers  reason_answers?
   events          events          @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users           users           @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
