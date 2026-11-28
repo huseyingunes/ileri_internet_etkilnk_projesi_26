@@ -1,14 +1,19 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
-import { DefaultDenyGuard } from './common/auth/default-deny.guard.js';
 import { GlobalExceptionFilter } from './common/global-exception.filter.js';
 import { loggerParams } from './common/logging.js';
+import { RateLimitGuard } from './common/rate-limit/rate-limit.js';
 import { ConfigModule } from './config/config.module.js';
 import type { Env } from './config/env.js';
 import { DatabaseModule } from './infra/database.js';
 import { RedisModule } from './infra/redis.js';
+import { CommunitiesModule } from './modules/communities/communities.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { AuthGuard } from './modules/identity/auth.guard.js';
+import { IdentityModule } from './modules/identity/identity.module.js';
+import { ProfileModule } from './modules/profile/profile.module.js';
+import { SecurityReportsModule } from './modules/security-reports/security-reports.module.js';
 
 @Module({})
 export class AppModule {
@@ -21,9 +26,15 @@ export class AppModule {
         DatabaseModule.forRoot(env.API_DB_POOL_SIZE),
         RedisModule,
         HealthModule,
+        IdentityModule,
+        CommunitiesModule,
+        ProfileModule,
+        SecurityReportsModule,
       ],
       providers: [
-        { provide: APP_GUARD, useClass: DefaultDenyGuard },
+        // Order matters: authentication/authorization first, then per-user rate limits.
+        { provide: APP_GUARD, useExisting: AuthGuard },
+        { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_FILTER, useClass: GlobalExceptionFilter },
       ],
     };

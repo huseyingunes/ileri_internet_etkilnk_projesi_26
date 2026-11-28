@@ -425,6 +425,7 @@ describe('properties', () => {
 describe('rollback', () => {
   it('down.sql removes everything and the migration can be re-applied', async () => {
     await db.prisma.$disconnect();
+    await runSqlFile(db.container, '/migrations/20261128010000_audit_log_public_id/down.sql');
     await runSqlFile(db.container, '/migrations/20261128000000_initial_schema/down.sql');
     const remaining = await db.container.exec([
       'psql',
