@@ -64,6 +64,8 @@ export default tseslint.config(
       'docs/kaynak/**',
       'design-system/**',
       'tools/semgrep/**',
+      // k6 scripts run in k6's own JavaScript runtime (open, __ENV), not in Node.
+      'tools/load/**',
       '.tmp/**',
       'apps/api/src/generated/**',
     ],
