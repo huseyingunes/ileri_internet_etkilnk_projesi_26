@@ -23,12 +23,14 @@
 		-Via
 	}
 
-	# Keycloak plays the university SSO (ADR 0011). Its admin console is never public;
-	# use the development port or `kcadm.sh` inside the container instead.
-	@idp_admin path /idp/admin /idp/admin/*
-	respond @idp_admin 404
-
+	# Keycloak plays the university SSO (ADR 0011).
 	handle /idp/* {
+		# Its admin console and admin REST API are never public; use the development
+		# port or `kcadm.sh` inside the container. (Inside this block because `handle`
+		# runs before a site-level `respond`.)
+		@idp_admin path /idp/admin /idp/admin/*
+		respond @idp_admin 404
+
 		# Keycloak sends its own CSP and frame options for its pages.
 		reverse_proxy {$IDP_UPSTREAM} {
 			header_up X-Forwarded-Proto https
