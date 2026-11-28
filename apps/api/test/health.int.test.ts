@@ -31,6 +31,8 @@ beforeAll(async () => {
     INITIAL_ADMIN_EMAIL: 'admin@uni.example',
     STORAGE_DRIVER: 'memory',
     QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
+    EMAIL_DRIVER: 'memory',
+    EMAIL_FROM: 'Etkinlik <bildirim@etkinlik.test>',
   });
   const started = await createApp(env);
   app = started;

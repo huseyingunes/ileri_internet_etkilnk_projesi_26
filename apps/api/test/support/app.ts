@@ -33,7 +33,9 @@ export interface TestApp {
  * demo seed loaded. OIDC itself is covered by auth.int.test.ts; here sessions
  * are created directly so feature tests stay fast.
  */
-export async function startTestApp(options: { worker?: boolean } = {}): Promise<TestApp> {
+export async function startTestApp(
+  options: { worker?: boolean; env?: Record<string, string> } = {},
+): Promise<TestApp> {
   const [db, redis] = await Promise.all([
     startMigratedDatabase(),
     new RedisContainer('redis:8-alpine').start(),
@@ -53,7 +55,10 @@ export async function startTestApp(options: { worker?: boolean } = {}): Promise<
     INITIAL_ADMIN_EMAIL: 'admin@uni.example',
     STORAGE_DRIVER: 'memory',
     QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
+    EMAIL_DRIVER: 'memory',
+    EMAIL_FROM: 'Etkinlik <bildirim@etkinlik.test>',
     WORKER_HEALTH_PORT: '39101',
+    ...options.env,
   });
   const app = await createApp(env);
   await app.listen(0, '127.0.0.1');
