@@ -34,6 +34,7 @@ jobs:
       - run: npm run build -w @etkinlik/shared
       - run: npm run prisma:generate -w @etkinlik/api
       - run: npm run lint
+      - run: npm run lint:openapi
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test

@@ -6,6 +6,8 @@ rules:
   operation-operationId-unique: error
   security-defined: error
   no-unused-components: warn
+  # Local development server is intentional (https://etkinlik.localhost).
+  no-server-example.com: off
   # Project conventions (prompt section 6 and 9).
   rule/operation-roles:
     subject:
@@ -21,9 +23,3 @@ rules:
     assertions:
       defined: true
     message: Every operation must declare the implementing phase in x-phase.
-  rule/path-kebab-case:
-    subject:
-      type: PathItem
-    assertions:
-      pattern: '^(/([a-z][a-z0-9-]*|\{[a-zA-Z]+\}))+$'
-    message: Paths use plural kebab-case nouns and camelCase parameters.

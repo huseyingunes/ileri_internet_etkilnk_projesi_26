@@ -32,20 +32,34 @@ servers:
 security:
   - session: []
 tags:
-  - { name: health, description: Liveness ve readiness }
-  - { name: auth, description: OIDC ile giriş ve çıkış }
-  - { name: me, description: Oturum sahibinin profili, rızaları, tercihleri ve kişisel verileri }
-  - { name: users, description: Kullanıcı ve rol yönetimi }
-  - { name: communities, description: Öğrenci toplulukları }
-  - { name: events, description: Etkinlik önerisi, onay, havuz, takvim ve arşiv }
-  - { name: media, description: Kapak görselleri ve fotoğraflar }
-  - { name: voting, description: Günlük seçim, oylama ve sonuçlar }
-  - { name: applications, description: Başvuru, kontenjan ve bekleme listesi }
-  - { name: attendance, description: QR, konum ve süre ile katılım doğrulama }
-  - { name: scoring, description: Puan kuralları, sezonlar ve liderlik tablosu }
-  - { name: feedback, description: Neden soruları ve değerlendirmeler }
-  - { name: notifications, description: Uygulama içi bildirimler ve WhatsApp webhook'u }
-  - { name: admin, description: Ayarlar, denetim kaydı ve analitik }
+  - name: health
+    description: 'Liveness ve readiness'
+  - name: auth
+    description: 'OIDC ile giriş ve çıkış'
+  - name: me
+    description: 'Oturum sahibinin profili, rızaları, tercihleri ve kişisel verileri'
+  - name: users
+    description: 'Kullanıcı ve rol yönetimi'
+  - name: communities
+    description: 'Öğrenci toplulukları'
+  - name: events
+    description: 'Etkinlik önerisi, onay, havuz, takvim ve arşiv'
+  - name: media
+    description: 'Kapak görselleri ve fotoğraflar'
+  - name: voting
+    description: 'Günlük seçim, oylama ve sonuçlar'
+  - name: applications
+    description: 'Başvuru, kontenjan ve bekleme listesi'
+  - name: attendance
+    description: 'QR, konum ve süre ile katılım doğrulama'
+  - name: scoring
+    description: 'Puan kuralları, sezonlar ve liderlik tablosu'
+  - name: feedback
+    description: 'Neden soruları ve değerlendirmeler'
+  - name: notifications
+    description: "Uygulama içi bildirimler ve WhatsApp webhook'u"
+  - name: admin
+    description: 'Ayarlar, denetim kaydı ve analitik'
 
 paths:
   # --- Health ----------------------------------------------------------------
