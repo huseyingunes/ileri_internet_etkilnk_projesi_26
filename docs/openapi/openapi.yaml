@@ -506,6 +506,29 @@ paths:
         '422': { $ref: './components/responses.yaml#/ValidationFailed' }
         '429': { $ref: './components/responses.yaml#/RateLimited' }
 
+  /me/data-requests/{dataRequestId}/download:
+    parameters:
+      - name: dataRequestId
+        in: path
+        required: true
+        schema: { $ref: './components/schemas.yaml#/PublicId' }
+    get:
+      tags: [me]
+      operationId: downloadDataExport
+      summary: Tamamlanan veri dökümünü indir (JSON)
+      description: Yalnızca talebin sahibi indirir; başkasının talebi 404 döner. Yanıt önbelleğe alınmaz.
+      x-roles: [student, advisor, admin]
+      x-phase: 12
+      responses:
+        '200':
+          description: Kişisel veri dökümü.
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+
   # --- Users -------------------------------------------------------------------
   /users:
     get:

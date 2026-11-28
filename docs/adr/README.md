@@ -25,3 +25,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0016](0016-geri-bildirim-ve-arsiv.md)  | Neden soruları, değerlendirme, arşiv ve galeri                  | Kabul edildi |
 | [0017](0017-bildirimler.md)             | Bildirimler, kanallar ve ilgi alanları                          | Kabul edildi |
 | [0018](0018-analitik.md)                | Yönetici paneli, materialized view'lar ve neden sınıflandırması | Kabul edildi |
+| [0019](0019-sertlestirme-ve-kvkk.md)    | Sertleştirme: KVKK talepleri, yedekleme, yük testi              | Kabul edildi |

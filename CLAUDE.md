@@ -32,6 +32,7 @@ npm run test:integration            # Testcontainers: PostgreSQL 18 + Redis 8
 npm run test:e2e                    # Playwright + axe-core
 docker compose --profile tools run --rm migrate   # göç (önce yedek: docs/isletim-kilavuzu.md)
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+tools/ops/backup.sh <hedef>             # yedek (geri yükleme: tools/ops/restore.sh <klasör> --yes)
 ```
 
 ## Mimari
