@@ -331,6 +331,46 @@ export class VotingService {
     };
   }
 
+  /**
+   * For scoring: each voter's choice in the day and category the event won.
+   * Null when the event did not win a daily vote (it is then not scored).
+   */
+  async voteChoicesForEvent(eventId: bigint): Promise<Map<bigint, 'winner' | 'other'> | null> {
+    const ballot = await this.db.daily_ballots.findFirst({
+      where: { event_id: eventId, voting_results: { some: { status: 'winner' } } },
+    });
+    if (ballot === null) return null;
+    const votes = await this.db.votes.findMany({
+      where: { voting_date: ballot.voting_date, category: ballot.category },
+      select: { student_user_id: true, daily_ballot_id: true },
+    });
+    return new Map(
+      votes.map((v) => [v.student_user_id, v.daily_ballot_id === ballot.id ? 'winner' : 'other']),
+    );
+  }
+
+  /** For the score summary: votes cast and the events voted for that won, in a date range. */
+  async voteStats(
+    studentId: bigint,
+    from: PlainDate,
+    to: PlainDate,
+  ): Promise<{ votedCount: number; wonEventIds: bigint[] }> {
+    const votes = await this.db.votes.findMany({
+      where: { student_user_id: studentId, voting_date: { gte: dbDate(from), lte: dbDate(to) } },
+      select: {
+        daily_ballots: {
+          select: { event_id: true, voting_results: { where: { status: 'winner' } } },
+        },
+      },
+    });
+    return {
+      votedCount: votes.length,
+      wonEventIds: votes.flatMap((v) =>
+        v.daily_ballots.voting_results.length > 0 ? [v.daily_ballots.event_id] : [],
+      ),
+    };
+  }
+
   /** Closes every finished voting day that has no result yet (catch-up safe, idempotent). */
   async closeDueDays(): Promise<number> {
     const today = this.today();

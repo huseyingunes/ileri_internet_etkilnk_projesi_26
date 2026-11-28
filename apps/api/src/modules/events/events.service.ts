@@ -330,6 +330,10 @@ export class EventsService {
     return await this.db.events.findUnique({ where: { public_id: publicId } });
   }
 
+  async findInternalById(id: bigint) {
+    return await this.db.events.findUnique({ where: { id } });
+  }
+
   // --- Write side --------------------------------------------------------------
 
   private async replaceTags(

@@ -4,6 +4,7 @@ import { type SyntheticEvent, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
 import { cancelEvent, getEvent, getMedia, reviewEvent, setCover, uploadImage } from '../api/events';
 import { ApplyPanel } from '../components/ApplyPanel';
+import { ExcuseForm, ExcuseReviewList } from '../components/ExcusePanels';
 import { Link } from '../router';
 import {
   Badge,
@@ -268,6 +269,10 @@ export function EventDetailPage({ id, role }: { id: string; role: Role }) {
       </section>
 
       {role === 'student' && data.status === 'scheduled' && <ApplyPanel event={data} />}
+      {role === 'student' &&
+        (data.status === 'scheduled' || data.status === 'completed') &&
+        data.viewer.application?.status === 'confirmed' && <ExcuseForm eventId={data.id} />}
+      {data.viewer.canManagePhotos && <ExcuseReviewList eventId={data.id} />}
       {(data.viewer.canReview || data.viewer.canManagePhotos) && (
         <Card className="flex flex-wrap gap-sm">
           {data.viewer.canReview && (

@@ -1,10 +1,12 @@
 export * from './ids/uuidv7.js';
 export * from './observability/sentry-privacy.js';
 export * from './rules/attendance.js';
+export * from './rules/scoring.js';
 export * from './rules/voting.js';
 export * from './schemas/api.js';
 export * from './schemas/events.js';
 export * from './schemas/identity.js';
+export * from './schemas/scoring.js';
 export * from './schemas/voting.js';
 export * from './temporal/istanbul.js';
 export { Temporal } from './temporal/temporal.js';

@@ -290,6 +290,52 @@ export class AttendanceService {
     };
   }
 
+  /** For scoring: final attendance status per student of a completed event. */
+  async finalOutcomes(eventId: bigint): Promise<Map<bigint, AttendanceStatus>> {
+    const rows = await this.db.attendances.findMany({
+      where: { event_id: eventId },
+      select: { student_user_id: true, status: true },
+    });
+    return new Map(rows.map((r) => [r.student_user_id, parseStatus(r.status)]));
+  }
+
+  /** An approved excuse turns a recorded absence into an excused one. */
+  async markExcused(eventId: bigint, studentId: bigint): Promise<void> {
+    await this.db.attendances.updateMany({
+      where: { event_id: eventId, student_user_id: studentId, status: 'absent' },
+      data: { status: 'excused' },
+    });
+  }
+
+  /** Attended events per student among finalizations in [from, to). */
+  async attendedCounts(
+    studentIds: readonly bigint[],
+    from: Instant,
+    to: Instant,
+  ): Promise<Map<bigint, number>> {
+    if (studentIds.length === 0) return new Map();
+    const grouped = await this.db.attendances.groupBy({
+      by: ['student_user_id'],
+      where: {
+        student_user_id: { in: [...studentIds] },
+        status: 'attended',
+        finalized_at: { gte: toDbDate(from), lt: toDbDate(to) },
+      },
+      _count: { _all: true },
+    });
+    return new Map(grouped.map((g) => [g.student_user_id, g._count._all]));
+  }
+
+  /** Statuses of one student for the given events (events without a record are omitted). */
+  async statusesOf(studentId: bigint, eventIds: readonly bigint[]) {
+    if (eventIds.length === 0) return new Map<bigint, AttendanceStatus>();
+    const rows = await this.db.attendances.findMany({
+      where: { student_user_id: studentId, event_id: { in: [...eventIds] } },
+      select: { event_id: true, status: true },
+    });
+    return new Map(rows.map((r) => [r.event_id, parseStatus(r.status)]));
+  }
+
   /**
    * Finalizes events that ended (plus the scan grace): writes one attendance
    * row per confirmed applicant and per waiting-list student, then marks the
@@ -339,6 +385,20 @@ export class AttendanceService {
     }
     return finalized;
   }
+}
+
+export type AttendanceStatus = 'attended' | 'absent' | 'excused' | 'blocked_by_capacity';
+
+function parseStatus(value: string): AttendanceStatus {
+  if (
+    value === 'attended' ||
+    value === 'absent' ||
+    value === 'excused' ||
+    value === 'blocked_by_capacity'
+  ) {
+    return value;
+  }
+  throw new Error(`unknown attendance status ${value}`);
 }
 
 function parseReason(value: string): RejectionReason {

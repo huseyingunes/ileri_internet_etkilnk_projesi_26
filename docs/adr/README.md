@@ -21,3 +21,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0012](0012-medya-ve-depolama.md)       | Görsel işleme ve nesne depolama kütüphaneleri | Kabul edildi |
 | [0013](0013-oylama-kararlari.md)        | Oylama kararları                              | Kabul edildi |
 | [0014](0014-katilim-dogrulama.md)       | Katılım doğrulama: QR, konum ve süre          | Kabul edildi |
+| [0015](0015-puanlama-kararlari.md)      | Puanlama, sezon ve mazeret kararları          | Kabul edildi |
