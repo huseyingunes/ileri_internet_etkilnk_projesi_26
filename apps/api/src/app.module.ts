@@ -20,6 +20,7 @@ import { AuthGuard } from './modules/identity/auth.guard.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { MediaModule } from './modules/media/media.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
+import { FeedbackModule } from './modules/feedback/feedback.module.js';
 import { ScoringModule } from './modules/scoring/scoring.module.js';
 import { SecurityReportsModule } from './modules/security-reports/security-reports.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
@@ -50,6 +51,7 @@ export class AppModule {
         ApplicationsModule,
         AttendanceModule,
         ScoringModule,
+        FeedbackModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.

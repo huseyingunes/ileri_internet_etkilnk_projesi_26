@@ -299,6 +299,10 @@ export class AttendanceService {
     return new Map(rows.map((r) => [r.student_user_id, parseStatus(r.status)]));
   }
 
+  async attendedCountOf(eventId: bigint): Promise<number> {
+    return await this.db.attendances.count({ where: { event_id: eventId, status: 'attended' } });
+  }
+
   /** An approved excuse turns a recorded absence into an excused one. */
   async markExcused(eventId: bigint, studentId: bigint): Promise<void> {
     await this.db.attendances.updateMany({
