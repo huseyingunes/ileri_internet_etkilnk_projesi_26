@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import type { ErrorBody } from '@etkinlik/shared';
 import { ZodError } from 'zod';
+import { Prisma } from '../generated/prisma/client.js';
 import { AppError, RateLimitedError } from './errors.js';
 
 export interface MappedError {
@@ -59,6 +60,26 @@ export function mapError(error: unknown, requestId: string): MappedError {
       headers,
       internal: false,
     };
+  }
+
+  // Database constraints are the last line of defence; map them to client errors.
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2002') {
+      return {
+        status: 409,
+        body: { code: 'CONFLICT', message: messageFor('CONFLICT'), fieldErrors: [], requestId },
+        headers: {},
+        internal: false,
+      };
+    }
+    if (error.code === 'P2025') {
+      return {
+        status: 404,
+        body: { code: 'NOT_FOUND', message: messageFor('NOT_FOUND'), fieldErrors: [], requestId },
+        headers: {},
+        internal: false,
+      };
+    }
   }
 
   if (error instanceof ZodError) {

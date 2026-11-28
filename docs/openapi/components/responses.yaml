@@ -1,0 +1,102 @@
+NoContent:
+  description: İşlem tamamlandı.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+NotModified:
+  description: Kaynak değişmedi (`If-None-Match` eşleşti).
+  headers:
+    ETag: { $ref: './headers.yaml#/ETag' }
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+BadRequest:
+  description: İstek ayrıştırılamadı (ör. bozuk JSON).
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+Unauthenticated:
+  description: Oturum yok ya da süresi dolmuş.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+      example:
+        {
+          code: UNAUTHENTICATED,
+          message: Bu işlem için giriş yapmalısınız.,
+          fieldErrors: [],
+          requestId: 01938a5d-ac96-7a4b-bcce-b302099a8057,
+        }
+Forbidden:
+  description: Oturum var ama rol ya da sahiplik yetkisi yok.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+      example:
+        {
+          code: FORBIDDEN,
+          message: Bu işlem için yetkiniz yok.,
+          fieldErrors: [],
+          requestId: 01938a5d-ac96-7a4b-bcce-b302099a8057,
+        }
+NotFound:
+  description: Kaynak yok ya da çağıranın görmesine izin verilmiyor.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+Conflict:
+  description: İstek mevcut durumla çakışıyor (ör. aynı kategoride başka bir etkinliğe oy verilmiş).
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+ValidationFailed:
+  description: Girdi şemaya ya da iş kuralına uymuyor; alan hataları `fieldErrors` içinde.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+      example:
+        code: VALIDATION_FAILED
+        message: Gönderilen bilgiler doğrulanamadı.
+        fieldErrors: [{ field: capacity, message: Kontenjan en az 1 olmalı. }]
+        requestId: 01938a5d-ac96-7a4b-bcce-b302099a8057
+PayloadTooLarge:
+  description: İstek gövdesi ya da yüklenen dosya çok büyük.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+RateLimited:
+  description: Hız sınırı aşıldı.
+  headers:
+    Retry-After: { $ref: './headers.yaml#/RetryAfter' }
+    RateLimit-Limit: { $ref: './headers.yaml#/RateLimitLimit' }
+    RateLimit-Remaining: { $ref: './headers.yaml#/RateLimitRemaining' }
+    RateLimit-Reset: { $ref: './headers.yaml#/RateLimitReset' }
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }
+      example:
+        {
+          code: RATE_LIMITED,
+          message: Çok fazla istek gönderdiniz. Lütfen biraz bekleyin.,
+          fieldErrors: [],
+          requestId: 01938a5d-ac96-7a4b-bcce-b302099a8057,
+        }
+InternalError:
+  description: Beklenmeyen hata; ayrıntı yanıta sızmaz, istek kimliğiyle loglanır.
+  headers:
+    X-Request-Id: { $ref: './headers.yaml#/RequestId' }
+  content:
+    application/json:
+      schema: { $ref: './schemas.yaml#/ErrorBody' }

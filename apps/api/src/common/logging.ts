@@ -64,3 +64,8 @@ export function loggerParams(env: Env, options: { http: boolean }): Params {
     },
   };
 }
+
+/** The server-generated request id (see assignRequestId). */
+export function requestIdOf(req: IncomingMessage): string {
+  return typeof req.id === 'string' ? req.id : 'unknown';
+}

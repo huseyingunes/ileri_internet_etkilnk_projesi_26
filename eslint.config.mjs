@@ -25,6 +25,32 @@ const bannedPackages = [
   message: 'This package is excluded by the project stack (see CLAUDE.md).',
 }));
 
+const dateRestriction = {
+  selector: "NewExpression[callee.name='Date'], CallExpression[callee.object.name='Date']",
+  message: 'Use the Temporal helpers from @etkinlik/shared instead of Date.',
+};
+
+/** Security and stack rules shared by every file, including tests. */
+const baseRestrictedSyntax = [
+  {
+    selector: 'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]',
+    message: 'innerHTML/outerHTML is forbidden; render user text as plain text.',
+  },
+  {
+    selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
+    message: 'insertAdjacentHTML is forbidden.',
+  },
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message: 'dangerouslySetInnerHTML is forbidden.',
+  },
+  {
+    selector: 'CallExpression[callee.property.name=/^\\$(queryRawUnsafe|executeRawUnsafe)$/]',
+    message: 'Unsafe raw SQL is forbidden; use tagged $queryRaw / $executeRaw.',
+  },
+];
+const restrictedSyntax = [...baseRestrictedSyntax, dateRestriction];
+
 export default tseslint.config(
   {
     ignores: [
@@ -71,29 +97,7 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
       ],
       'no-restricted-imports': ['error', { paths: bannedPackages }],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]',
-          message: 'innerHTML/outerHTML is forbidden; render user text as plain text.',
-        },
-        {
-          selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
-          message: 'insertAdjacentHTML is forbidden.',
-        },
-        {
-          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message: 'dangerouslySetInnerHTML is forbidden.',
-        },
-        {
-          selector: "NewExpression[callee.name='Date'], CallExpression[callee.object.name='Date']",
-          message: 'Use the Temporal helpers from @etkinlik/shared instead of Date.',
-        },
-        {
-          selector: 'CallExpression[callee.property.name=/^\\$(queryRawUnsafe|executeRawUnsafe)$/]',
-          message: 'Unsafe raw SQL is forbidden; use tagged $queryRaw / $executeRaw.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...restrictedSyntax],
     },
   },
   {
@@ -127,6 +131,8 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/unbound-method': 'off',
+      // Tests talk to Prisma, whose DateTime fields take Date objects.
+      'no-restricted-syntax': ['error', ...baseRestrictedSyntax],
     },
   },
 );

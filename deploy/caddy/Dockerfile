@@ -18,4 +18,4 @@ RUN npm run build -w @etkinlik/shared && npm run build -w @etkinlik/web
 FROM caddy:2.11.9-alpine AS runtime
 COPY deploy/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/web/dist /srv
-RUN SITE_ADDRESS=localhost API_UPSTREAM=api:3000 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+RUN SITE_ADDRESS=localhost API_UPSTREAM=api:3000 IDP_UPSTREAM=keycloak:8080 APP_ORIGIN=https://localhost caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

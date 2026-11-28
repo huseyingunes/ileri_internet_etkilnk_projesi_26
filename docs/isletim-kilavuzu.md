@@ -41,7 +41,12 @@ Gizli değerlerin varsayılanı yoktur; eksik değer varsa Compose da uygulama d
 | `API_DB_POOL_SIZE`, `WORKER_DB_POOL_SIZE`                                     | Hayır          | Bağlantı havuzu boyutları (pozitif tam sayı; varsayılan 10 ve 5)                                                                          |
 | `LOG_LEVEL`                                                                   | Hayır          | `info` (varsayılan), `debug` vb.                                                                                                          |
 | `SENTRY_DSN`                                                                  | Hayır          | Boşsa Sentry kapalıdır. Kişisel veri gönderilmez.                                                                                         |
-| `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`                              | Yalnızca yerel | `compose.dev.yaml` içindeki Keycloak için                                                                                                 |
+| `OIDC_CLIENT_SECRET`                                                          | Evet           | Keycloak `etkinlik-web` istemcisinin sırrı (realm içe aktarılırken de kullanılır)                                                         |
+| `KEYCLOAK_DB_PASSWORD`                                                        | Evet           | Keycloak'ın PostgreSQL rolünün parolası                                                                                                   |
+| `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`                              | Evet           | Keycloak'ın ilk (bootstrap) yönetici hesabı                                                                                               |
+| `INITIAL_ADMIN_EMAIL`                                                         | Evet           | İlk girişte uygulama yöneticisi yapılacak kurumsal e-posta                                                                                |
+| `DEMO_USER_PASSWORD`                                                          | Evet           | Kurgusal demo hesapların parolası (en az 12 karakter)                                                                                     |
+| `SESSION_IDLE_SECONDS`, `SESSION_ABSOLUTE_SECONDS`                            | Hayır          | Oturumun boşta kalma ve toplam süresi (varsayılan 1800 / 43200; pozitif olmalı)                                                           |
 | `DEV_POSTGRES_PORT`, `DEV_REDIS_PORT`, `DEV_GARAGE_PORT`, `DEV_KEYCLOAK_PORT` | Yalnızca yerel | Ana makinede `127.0.0.1`'e açılan port'lar (varsayılan 5432, 6379, 3900, 8080). Makinede başka bir PostgreSQL vb. çalışıyorsa değiştirin. |
 
 ## Yığını çalıştırma
@@ -61,6 +66,73 @@ iç kök sertifikası bir kez sisteme eklenir:
 docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
 # Ardından caddy-root.crt dosyasını işletim sisteminin güvenilen kök sertifikalarına ekleyin.
 ```
+
+## Keycloak ve demo kullanıcılar
+
+Bu ders projesinde gerçek bir üniversite SSO'su yoktur. Bu yüzden Keycloak, `https://<alan-adı>/idp`
+altında kimlik sağlayıcı olarak çalışır ([ADR 0011](adr/0011-keycloak-demo-sso.md)).
+
+- **İlk kurulum:** PostgreSQL veri birimi boşsa `deploy/postgres/initdb/10-keycloak.sh`, Keycloak
+  rolünü ve veritabanını kendisi oluşturur. **Mevcut bir birimde** bir kez elle oluşturun:
+
+  ```sh
+  docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v kc_password="$KEYCLOAK_DB_PASSWORD"' <<'SQL'
+  CREATE ROLE keycloak LOGIN PASSWORD :'kc_password';
+  CREATE DATABASE keycloak OWNER keycloak;
+  SQL
+  ```
+
+  `KEYCLOAK_DB_PASSWORD` değişkenini `postgres` servisine Compose verir.
+
+- **Realm:** `deploy/keycloak/realm/etkinlik-realm.json` ilk açılışta içe aktarılır (`--import-realm`;
+  realm zaten varsa atlanır).
+- **Demo verisini yeniden üretmek için:** `python tools/demo/generate.py`. Realm dosyası ve
+  `deploy/demo/seed.sql` birlikte değişir.
+- **Uygulama tohum verisi** (demo kullanıcılar ve topluluklar; idempotent), göçlerden sonra:
+
+  ```sh
+  docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < deploy/demo/seed.sql
+  ```
+
+- **Giriş:** demo hesapların kullanıcı adları realm dosyasındadır (ör. öğrenciler
+  `ad.soyadN@ogr.uni.example`). Parolası `.env` dosyasındaki `DEMO_USER_PASSWORD`'dür. İlk yönetici
+  `yonetici` kullanıcısıdır ve e-postası `INITIAL_ADMIN_EMAIL`'dir.
+- **Yönetim konsolu** Caddy'de kapalıdır (`/idp/admin` → 404). Yerelde
+  `http://127.0.0.1:<DEV_KEYCLOAK_PORT>/idp/admin` adresinden ya da konteyner içinde
+  `/opt/keycloak/bin/kcadm.sh` ile erişilir.
+
+## Göçler
+
+Şema değişiklikleri `apps/api/prisma/migrations/<zaman>_<ad>/migration.sql` dosyalarındaki SQL ile yapılır.
+Her göçün yanında bir `down.sql` geri alma betiği bulunur ([ADR 0009](adr/0009-sql-gocleri.md)).
+API açılışta göç uygulamaz. Adımlar:
+
+1. **Yedek al:**
+
+   ```sh
+   docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > yedek-$(date +%Y%m%d-%H%M).dump
+   ```
+
+2. **Göçü uygula:**
+
+   ```sh
+   docker compose --profile tools run --rm migrate
+   ```
+
+3. **Doğrula:** `GET /api/v1/health/ready` 200 dönmeli. Göçün PR'ında yazılı veri doğrulama sorgularını çalıştırın.
+4. **Geri alma gerekirse:** önce uygulamayı durdurun (`docker compose stop api worker`), sonra:
+
+   ```sh
+   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < apps/api/prisma/migrations/<göç>/down.sql
+   ```
+
+   Veri kaybı olduysa yedekten geri yükleyin: `pg_restore --clean --if-exists`.
+
+Kurallar:
+
+- Göçler geriye uyumlu yazılır: önce ekle, sonra kaldır.
+- Canlı tabloda indeks `CREATE INDEX CONCURRENTLY` ile oluşturulur; bu komut transaction içinde çalışmadığı için ayrı bir göç dosyasına konur.
+- `schema.prisma` elle düzenlenmez; göç uygulandıktan sonra `npx prisma db pull` ile üretilir. Entegrasyon testi şema ile veritabanı arasında sapma olmadığını doğrular.
 
 ## Sağlık uç noktaları
 

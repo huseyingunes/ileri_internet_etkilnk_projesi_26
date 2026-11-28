@@ -34,6 +34,7 @@ jobs:
       - run: npm run build -w @etkinlik/shared
       - run: npm run prisma:generate -w @etkinlik/api
       - run: npm run lint
+      - run: npm run lint:openapi
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
@@ -88,6 +89,7 @@ jobs:
           persist-credentials: false
       - run: docker build -f apps/api/Dockerfile -t etkinlik/api:ci .
       - run: docker build -f deploy/caddy/Dockerfile -t etkinlik/caddy:ci .
+      - run: bash tools/smoke/caddy.sh etkinlik/caddy:ci
 
   semgrep:
     name: Semgrep

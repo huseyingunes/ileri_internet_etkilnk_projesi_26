@@ -30,6 +30,7 @@ npm run lint && npm run format:check && npm run typecheck
 npm test                            # birim (Vitest)
 npm run test:integration            # Testcontainers: PostgreSQL 18 + Redis 8
 npm run test:e2e                    # Playwright + axe-core
+docker compose --profile tools run --rm migrate   # göç (önce yedek: docs/isletim-kilavuzu.md)
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build
 ```
 
@@ -59,6 +60,7 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
 ## Veritabanı
 
 - Sıra: önce veri modeli, sonra OpenAPI sözleşmesi, sonra modüller.
+- **Göçler elle yazılan SQL'dir** (`apps/api/prisma/migrations/*/migration.sql` + `down.sql`); `schema.prisma` `prisma db pull` ile üretilir, elle düzenlenmez ([ADR 0009](docs/adr/0009-sql-gocleri.md)). Tablolar `text + CHECK`, kısmi indeks ve trigger kullanır; Prisma şeması bunları göstermez.
 - `timestamptz`; `text` + `CHECK`; birincil anahtar `bigint identity`; dışa açık kimlikler UUIDv7.
 - Gerekli sütunlar `NOT NULL`; her yabancı anahtar sütununa indeks.
 - Tekillik: oy (öğrenci, gün, kategori); başvuru (öğrenci, etkinlik); puan hareketi
@@ -75,6 +77,7 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
 ## API
 
 - OpenAPI ([docs/openapi/openapi.yaml](docs/openapi/openapi.yaml)) koddan önce yazılır; yollar `/api/v1`.
+- Sözleşme çok dosyalıdır (`docs/openapi/components/`); her işlem `x-roles` ve `x-phase` taşır. Sayfalama imleç tabanlıdır (`limit` + `cursor` → `page.nextCursor`). QR belirteci URL parçasında (`#`) taşınır ([ADR 0010](docs/adr/0010-api-sozlesmesi.md)).
 - Kaynak adları çoğul; en fazla iki düzey iç içe.
 - Tek hata gövdesi `{ code, message, fieldErrors, requestId }` (`@etkinlik/shared`
   `errorBodySchema`); 401, 403, 422, 429 doğru ayrılır. Hatalar yalnızca
@@ -126,8 +129,9 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
   ilk girişinde atanır. Depolama kovası özel.
 - Oturum çerezi `__Host-`, `Secure; HttpOnly; SameSite=Lax`; girişte yeni oturum kimliği;
   zaman aşımı pozitif. OIDC dönüşü GET (`form_post` yok). Çıkışta `Clear-Site-Data`.
-- **Yetki varsayılan olarak reddedilir** (`DefaultDenyGuard`). Her route `@Public()` ya da
-  `@Roles(...)` taşımak zorunda (Semgrep kuralı). Roller enum. Öğrenci kimliği oturumdan alınır;
+- **Yetki varsayılan olarak reddedilir** (`AuthGuard`, `apps/api/src/modules/identity`). Her route `@Public()` ya da
+  `@Roles(...)` (metotta ya da sınıfta) taşımak zorunda (Semgrep kuralı). Çağıran `@CurrentUser()` ile alınır; hız sınırı `@RateLimit(...)`.
+- Kimlik: Keycloak `/idp` altında demo üniversite SSO'su ([ADR 0011](docs/adr/0011-keycloak-demo-sso.md)); demo kullanıcılar `tools/demo/generate.py` ile üretilir, gizli değerler yalnızca `.env`'de. Oturum Redis'te, token'ın yalnızca SHA-256 özeti saklanır. Roller enum. Öğrenci kimliği oturumdan alınır;
   danışman yalnızca kendi etkinliklerine erişir.
 - Oy, QR doğrulama ve profil uç noktalarında Redis tabanlı hız sınırı.
 - Başlıklar (Caddy): sıkı CSP, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'self'`;

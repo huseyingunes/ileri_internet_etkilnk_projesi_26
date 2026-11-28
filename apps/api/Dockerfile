@@ -18,6 +18,13 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 RUN npm run build -w @etkinlik/shared && npm run build -w @etkinlik/api
 
+# One-off migration runner (`docker compose run --rm migrate`). Never runs on API start-up,
+# so a backup can be taken first (docs/isletim-kilavuzu.md, "Göçler").
+FROM build AS migrate
+WORKDIR /app/apps/api
+USER node
+CMD ["/app/node_modules/.bin/prisma", "migrate", "deploy"]
+
 FROM base AS prod-deps
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/

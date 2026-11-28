@@ -23,3 +23,7 @@ rules:
       - pattern-not: |
           @Roles(...)
           $M(...) { ... }
+      # A class-level @Roles(...) covers every handler of the controller.
+      - pattern-not-inside: |
+          @Roles(...)
+          class $C { ... }

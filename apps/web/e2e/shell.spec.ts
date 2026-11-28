@@ -17,12 +17,45 @@ async function mockHealth(page: Page, status: number) {
   );
 }
 
+async function mockSession(page: Page, signedIn: boolean) {
+  await page.route('**/api/v1/me', (route) =>
+    route.fulfill(
+      signedIn
+        ? {
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              id: '01938a5d-ac96-7a4b-bcce-b302099a8057',
+              displayName: 'Ayşe Yılmaz',
+              email: 'ayse.yilmaz1@ogr.uni.example',
+              role: 'student',
+              communities: [],
+            }),
+          }
+        : {
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              code: 'UNAUTHENTICATED',
+              message: 'x',
+              fieldErrors: [],
+              requestId: 'r',
+            }),
+          },
+    ),
+  );
+}
+
 async function expectNoAxeViolations(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   expect(results.violations).toEqual([]);
 }
 
 test.describe('application shell', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockSession(page, false);
+  });
+
   test('renders in Turkish and reports a healthy server', async ({ page }) => {
     await mockHealth(page, 200);
     await page.goto('/');
@@ -119,5 +152,52 @@ test.describe('application shell', () => {
       lang: 'tr',
       display: 'standalone',
     });
+  });
+});
+
+test.describe('account', () => {
+  test('offers server-side login that returns to the current page', async ({ page }) => {
+    await mockHealth(page, 200);
+    await mockSession(page, false);
+    await page.goto('/?sekme=oylar');
+
+    const login = page.getByRole('link', { name: 'Giriş yap' });
+    await expect(login).toHaveAttribute(
+      'href',
+      `/api/v1/auth/login?returnTo=${encodeURIComponent('/?sekme=oylar')}`,
+    );
+    await expectNoAxeViolations(page);
+  });
+
+  test('shows the signed-in user and a keyboard-operable logout button', async ({ page }) => {
+    await mockHealth(page, 200);
+    await mockSession(page, true);
+    await page.route('**/api/v1/auth/logout', (route) => route.fulfill({ status: 204 }));
+    await page.goto('/');
+
+    const logout = page.getByRole('button', { name: 'Çıkış yap' });
+    await expect(logout).toBeVisible();
+    const box = await logout.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await expectNoAxeViolations(page);
+
+    await logout.focus();
+    const loggedOut = page.waitForRequest('**/api/v1/auth/logout');
+    await page.keyboard.press('Enter');
+    expect((await loggedOut).method()).toBe('POST');
+  });
+
+  test('announces a failed login', async ({ page }) => {
+    await mockHealth(page, 200);
+    await mockSession(page, false);
+    await page.goto('/?giris=hata');
+
+    await expect(page.getByRole('alert')).toContainText('Giriş tamamlanamadı.');
+    const login = page.getByRole('link', { name: 'Giriş yap' });
+    await expect(login).toHaveAttribute(
+      'href',
+      `/api/v1/auth/login?returnTo=${encodeURIComponent('/')}`,
+    );
+    await expectNoAxeViolations(page);
   });
 });

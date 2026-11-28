@@ -24,3 +24,13 @@ export class ThingsController {
     return 1;
   }
 }
+
+@Controller('me')
+@Roles('student', 'advisor', 'admin')
+export class MeController {
+  // ok: etkinlik-route-without-access-decision
+  @Get()
+  me() {
+    return 1;
+  }
+}

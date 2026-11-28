@@ -1,0 +1,75 @@
+Limit:
+  name: limit
+  in: query
+  description: Sayfa boyutu (varsayılan 20, en fazla 100).
+  schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+Cursor:
+  name: cursor
+  in: query
+  description: Önceki yanıttaki `nextCursor`. İlk sayfa için gönderilmez.
+  schema: { type: string, minLength: 1, maxLength: 200 }
+IfNoneMatch:
+  name: If-None-Match
+  in: header
+  description: Önceki yanıtın `ETag` değeri; değişiklik yoksa `304` döner.
+  schema: { type: string, maxLength: 200 }
+EventId:
+  name: eventId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+CommunityId:
+  name: communityId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+UserId:
+  name: userId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+MediaId:
+  name: mediaId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+ApplicationId:
+  name: applicationId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+NotificationId:
+  name: notificationId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+ExcuseId:
+  name: excuseId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+ReasonPromptId:
+  name: reasonPromptId
+  in: path
+  required: true
+  schema: { $ref: './schemas.yaml#/PublicId' }
+VotingDate:
+  name: date
+  in: path
+  required: true
+  description: Oylama günü (Europe/Istanbul takvim günü).
+  schema: { type: string, format: date }
+VotingDateQuery:
+  name: date
+  in: query
+  description: Oylama günü (Europe/Istanbul). Verilmezse bugün.
+  schema: { type: string, format: date }
+Category:
+  name: category
+  in: query
+  schema: { $ref: './schemas.yaml#/Category' }
+SeasonName:
+  name: season
+  in: query
+  description: Sezon adı (ör. `2026-2027`). Verilmezse aktif sezon.
+  schema: { type: string, pattern: '^[0-9]{4}-[0-9]{4}$' }

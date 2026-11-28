@@ -6,6 +6,10 @@ const valid = {
   APP_ORIGIN: 'https://etkinlik.localhost',
   DATABASE_URL: 'postgresql://app:secret@localhost:5432/app',
   REDIS_URL: 'redis://localhost:6379', // nosemgrep: trailofbits.generic.redis-unencrypted-transport.redis-unencrypted-transport
+  OIDC_ISSUER: 'https://etkinlik.localhost/idp/realms/etkinlik',
+  OIDC_CLIENT_ID: 'etkinlik-web',
+  OIDC_CLIENT_SECRET: '0123456789abcdef0123456789abcdef',
+  INITIAL_ADMIN_EMAIL: 'Admin@Uni.Example',
 };
 
 describe('loadEnv', () => {
@@ -15,13 +19,19 @@ describe('loadEnv', () => {
     expect(env.SENTRY_DSN).toBeUndefined();
   });
 
-  it.each(['NODE_ENV', 'APP_ORIGIN', 'DATABASE_URL', 'REDIS_URL'] as const)(
-    'refuses to start without %s',
-    (key) => {
-      const { [key]: _omitted, ...rest } = valid;
-      expect(() => loadEnv(rest)).toThrow(ConfigError);
-    },
-  );
+  it.each([
+    'NODE_ENV',
+    'APP_ORIGIN',
+    'DATABASE_URL',
+    'REDIS_URL',
+    'OIDC_ISSUER',
+    'OIDC_CLIENT_ID',
+    'OIDC_CLIENT_SECRET',
+    'INITIAL_ADMIN_EMAIL',
+  ] as const)('refuses to start without %s', (key) => {
+    const { [key]: _omitted, ...rest } = valid;
+    expect(() => loadEnv(rest)).toThrow(ConfigError);
+  });
 
   it('treats empty strings as missing', () => {
     expect(() => loadEnv({ ...valid, DATABASE_URL: '' })).toThrow(ConfigError);
@@ -36,6 +46,28 @@ describe('loadEnv', () => {
     expect(loadEnv({ ...valid, DATABASE_URL: 'postgres://a:b@db:5432/app' }).DATABASE_URL).toMatch(
       /^postgres:/,
     );
+  });
+
+  it('lower-cases the initial admin e-mail', () => {
+    expect(loadEnv(valid).INITIAL_ADMIN_EMAIL).toBe('admin@uni.example');
+  });
+
+  it('refuses an http issuer unless explicitly allowed outside production', () => {
+    const httpIssuer = { ...valid, OIDC_ISSUER: 'http://keycloak:8080/idp/realms/etkinlik' };
+    expect(() => loadEnv(httpIssuer)).toThrow(ConfigError);
+    expect(
+      loadEnv({ ...httpIssuer, OIDC_ALLOW_INSECURE_HTTP: 'true' }).OIDC_ALLOW_INSECURE_HTTP,
+    ).toBe(true);
+    expect(() =>
+      loadEnv({ ...httpIssuer, OIDC_ALLOW_INSECURE_HTTP: 'true', NODE_ENV: 'production' }),
+    ).toThrow(ConfigError);
+  });
+
+  it('refuses a short client secret and an idle timeout above the absolute one', () => {
+    expect(() => loadEnv({ ...valid, OIDC_CLIENT_SECRET: 'short' })).toThrow(ConfigError);
+    expect(() =>
+      loadEnv({ ...valid, SESSION_IDLE_SECONDS: '7200', SESSION_ABSOLUTE_SECONDS: '3600' }),
+    ).toThrow(ConfigError);
   });
 
   it('requires an https origin', () => {

@@ -24,6 +24,11 @@ beforeAll(async () => {
     DATABASE_URL: startedPostgres.getConnectionUri(),
     REDIS_URL: startedRedis.getConnectionUrl(),
     LOG_LEVEL: 'error',
+    // OIDC discovery is lazy; these values are never contacted by the health tests.
+    OIDC_ISSUER: 'https://idp.invalid/idp/realms/etkinlik',
+    OIDC_CLIENT_ID: 'etkinlik-web',
+    OIDC_CLIENT_SECRET: 'health-test-secret-0123456789',
+    INITIAL_ADMIN_EMAIL: 'admin@uni.example',
   });
   const started = await createApp(env);
   app = started;

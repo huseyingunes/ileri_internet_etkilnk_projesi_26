@@ -1,127 +1,1790 @@
 openapi: 3.1.1
 info:
   title: Etkinlik Platformu API
-  version: 0.0.0
-  description: >-
-    Etkinlik Yönetimi ve Öğrenci Katılım Platformu REST API sözleşmesi.
-    Aşama 0 yalnızca sağlık uç noktalarını içerir; tam sözleşme Aşama 2'de yazılır
-    ve koddan önce onaylanır.
+  version: 1.0.0-draft
+  license:
+    name: GPL-3.0-only
+    identifier: GPL-3.0-only
+  description: |
+    Etkinlik Yönetimi ve Öğrenci Katılım Platformu REST API sözleşmesi (Aşama 2).
+    Kod bu sözleşmeye göre yazılır; değişiklik önce burada yapılır.
+
+    **Genel kurallar**
+    - Tüm yollar `/api/v1` altındadır; istemci aynı origin'den çağırır, CORS yoktur.
+    - Kimlik doğrulama: OIDC ile üniversite SSO, sunucu taraflı oturum, `__Host-session` çerezi.
+      Yetki varsayılan olarak reddedilir; her işlemin izinli rolleri `x-roles` ile belirtilir.
+      Öğrenci kimliği istekten değil oturumdan alınır.
+    - Durum değiştiren isteklerde Fetch Metadata denetimi yapılır: `Sec-Fetch-Site`
+      `same-origin` değilse `403`.
+    - Hatalar tek gövdeyle döner (`ErrorBody`). `401` oturum yok, `403` yetki yok,
+      `422` doğrulama/iş kuralı, `429` hız sınırı (`Retry-After` ile).
+    - Listeler imleç tabanlı sayfalanır: `limit` (varsayılan 20, en fazla 100) ve `cursor`;
+      yanıtta `page.nextCursor`.
+    - Oy, başvuru ve QR okutma idempotenttir: aynı istek tekrarlanırsa aynı sonuç döner.
+    - Hız sınırı olan uç noktalar `RateLimit-*` başlıklarını döner.
+    - Kullanıcı metinleri düz metindir; HTML kabul edilmez.
+    - `x-phase`: işlemin uygulanacağı aşama.
 servers:
   - url: https://haber10da.net/api/v1
     description: Üretim
   - url: https://etkinlik.localhost/api/v1
     description: Yerel geliştirme
+security:
+  - session: []
 tags:
   - name: health
-    description: Liveness ve readiness
+    description: 'Liveness ve readiness'
+  - name: auth
+    description: 'OIDC ile giriş ve çıkış'
+  - name: me
+    description: 'Oturum sahibinin profili, rızaları, tercihleri ve kişisel verileri'
+  - name: users
+    description: 'Kullanıcı ve rol yönetimi'
+  - name: communities
+    description: 'Öğrenci toplulukları'
+  - name: events
+    description: 'Etkinlik önerisi, onay, havuz, takvim ve arşiv'
+  - name: media
+    description: 'Kapak görselleri ve fotoğraflar'
+  - name: voting
+    description: 'Günlük seçim, oylama ve sonuçlar'
+  - name: applications
+    description: 'Başvuru, kontenjan ve bekleme listesi'
+  - name: attendance
+    description: 'QR, konum ve süre ile katılım doğrulama'
+  - name: scoring
+    description: 'Puan kuralları, sezonlar ve liderlik tablosu'
+  - name: feedback
+    description: 'Neden soruları ve değerlendirmeler'
+  - name: notifications
+    description: "Uygulama içi bildirimler ve WhatsApp webhook'u"
+  - name: admin
+    description: 'Ayarlar, denetim kaydı ve analitik'
+
 paths:
+  # --- Health ----------------------------------------------------------------
   /health/live:
     get:
       tags: [health]
       operationId: getLiveness
       summary: Süreç ayakta mı?
-      description: Bağımlılıklara dokunmaz. Kimlik doğrulama gerektirmez.
       security: []
+      x-roles: [public]
+      x-phase: 0
       responses:
         '200':
           description: Süreç yanıt veriyor.
           headers:
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-Id: { $ref: './components/headers.yaml#/RequestId' }
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HealthResponse' }
-              example: { status: ok, checks: {} }
+              schema: { $ref: './components/schemas.yaml#/HealthResponse' }
   /health/ready:
     get:
       tags: [health]
       operationId: getReadiness
       summary: Bağımlılıklar hazır mı?
-      description: PostgreSQL ve Redis'e zaman aşımlı yoklama yapar. Kimlik doğrulama gerektirmez.
       security: []
+      x-roles: [public]
+      x-phase: 0
       responses:
         '200':
-          description: Tüm bağımlılıklar hazır.
+          description: PostgreSQL ve Redis erişilebilir.
           headers:
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-Id: { $ref: './components/headers.yaml#/RequestId' }
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HealthResponse' }
-              example: { status: ok, checks: { database: ok, redis: ok } }
+              schema: { $ref: './components/schemas.yaml#/HealthResponse' }
         '503':
           description: En az bir bağımlılık hazır değil.
           headers:
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+            X-Request-Id: { $ref: './components/headers.yaml#/RequestId' }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/HealthResponse' }
-              example: { status: error, checks: { database: ok, redis: error } }
+              schema: { $ref: './components/schemas.yaml#/HealthResponse' }
+
+  # --- Auth ------------------------------------------------------------------
+  /auth/login:
+    get:
+      tags: [auth]
+      operationId: startLogin
+      summary: Üniversite SSO girişini başlat
+      description: >-
+        Kimlik sağlayıcıya (OIDC, PKCE) yönlendirir. `returnTo` yalnızca `/` ile başlayan
+        göreli bir yol olabilir (açık yönlendirme yok). Hız sınırlıdır.
+      security: []
+      x-roles: [public]
+      x-phase: 3
+      parameters:
+        - name: returnTo
+          in: query
+          schema: { type: string, pattern: '^/(?!/)[^\s]{0,500}$' }
+      responses:
+        '302':
+          description: Kimlik sağlayıcıya yönlendirme.
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /auth/callback:
+    get:
+      tags: [auth]
+      operationId: completeLogin
+      summary: OIDC dönüşü (GET; form_post kullanılmaz)
+      description: >-
+        `state` (tarayıcıya `__Host-login-state` çereziyle bağlı ve tek kullanımlık), `nonce` ve
+        PKCE doğrulanır; girişte yeni oturum kimliği üretilir (oturum sabitleme yok). İlk yönetici,
+        ortam değişkenindeki kurumsal e-postayla ilk girişte atanır. Bu adres tarayıcının tam sayfa
+        gezintisi olduğu için hatalar JSON yerine `/?giris=hata` adresine yönlendirilir.
+      security: []
+      x-roles: [public]
+      x-phase: 3
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string, maxLength: 2048 } }
+        - { name: state, in: query, required: true, schema: { type: string, maxLength: 512 } }
+      responses:
+        '302':
+          description: >-
+            Başarılıysa `returnTo` adresine, oturum çereziyle; doğrulama başarısızsa (`state` uyuşmuyor,
+            süresi dolmuş, hesap devre dışı, ID token geçersiz) oturum açılmadan `/?giris=hata` adresine.
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+            Set-Cookie: { $ref: './components/headers.yaml#/SetSessionCookie' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Çıkış
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      responses:
+        '204':
+          description: Oturum silindi.
+          headers:
+            Clear-Site-Data: { $ref: './components/headers.yaml#/ClearSiteData' }
+            X-Request-Id: { $ref: './components/headers.yaml#/RequestId' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+
+  # --- Me ----------------------------------------------------------------------
+  /me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: Oturum sahibinin profili
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      responses:
+        '200':
+          description: Profil. Yanıt service worker'da önbelleğe alınmaz.
+          headers:
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Me' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+    patch:
+      tags: [me]
+      operationId: updateMe
+      summary: Profili güncelle (telefon)
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      x-rate-limited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/MeUpdate' }
+      responses:
+        '200':
+          description: Güncel profil.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Me' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /me/consents:
+    get:
+      tags: [me]
+      operationId: listMyConsents
+      summary: Açık rıza durumları (konum, WhatsApp, fotoğraf)
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      responses:
+        '200':
+          description: Her rıza türü için güncel durum.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 3
+                    items: { $ref: './components/schemas.yaml#/Consent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+  /me/consents/{kind}:
+    parameters:
+      - name: kind
+        in: path
+        required: true
+        schema: { $ref: './components/schemas.yaml#/ConsentKind' }
+    put:
+      tags: [me]
+      operationId: grantConsent
+      summary: Rıza ver (idempotent)
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/ConsentGrant' }
+      responses:
+        '200':
+          description: Rıza kaydedildi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Consent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    delete:
+      tags: [me]
+      operationId: revokeConsent
+      summary: Rızayı geri al
+      description: WhatsApp rızası geri alınınca WhatsApp bildirimleri durur; uygulama içi bildirimler sürer.
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+  /me/notification-preferences:
+    get:
+      tags: [me]
+      operationId: getNotificationPreferences
+      summary: Bildirim kanal ve tür tercihleri
+      x-roles: [student, advisor, admin]
+      x-phase: 10
+      responses:
+        '200':
+          description: Tercihler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/NotificationPreferenceList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+    put:
+      tags: [me]
+      operationId: replaceNotificationPreferences
+      summary: Tercihleri değiştir
+      x-roles: [student, advisor, admin]
+      x-phase: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/NotificationPreferenceList' }
+      responses:
+        '200':
+          description: Güncel tercihler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/NotificationPreferenceList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/interests:
+    get:
+      tags: [me]
+      operationId: getMyInterests
+      summary: İlgi alanları
+      x-roles: [student]
+      x-phase: 10
+      responses:
+        '200':
+          description: Seçilen ve türetilen ilgi alanları.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/InterestList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+    put:
+      tags: [me]
+      operationId: replaceMyInterests
+      summary: Seçilen ilgi alanlarını değiştir
+      x-roles: [student]
+      x-phase: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/InterestUpdate' }
+      responses:
+        '200':
+          description: Güncel ilgi alanları.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/InterestList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/score:
+    get:
+      tags: [me, scoring]
+      operationId: getMyScore
+      summary: Puan, sıra ve katılım istatistikleri (kişisel)
+      x-roles: [student]
+      x-phase: 8
+      parameters:
+        - $ref: './components/parameters.yaml#/SeasonName'
+      responses:
+        '200':
+          description: Özet.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ScoreSummary' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+  /me/score-entries:
+    get:
+      tags: [me, scoring]
+      operationId: listMyScoreEntries
+      summary: Puan geçmişi (hangi etkinlikten kaç puan)
+      x-roles: [student]
+      x-phase: 8
+      parameters:
+        - $ref: './components/parameters.yaml#/SeasonName'
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Defter hareketleri, en yeni önce.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ScoreEntryPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/applications:
+    get:
+      tags: [me, applications]
+      operationId: listMyApplications
+      summary: Başvurularım
+      x-roles: [student]
+      x-phase: 6
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [confirmed, waitlisted, cancelled] }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Başvurular. Yanıt service worker'da önbelleğe alınmaz.
+          headers:
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/MyApplicationPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/reason-prompts:
+    get:
+      tags: [me, feedback]
+      operationId: listMyReasonPrompts
+      summary: Bekleyen neden soruları
+      x-roles: [student]
+      x-phase: 9
+      parameters:
+        - name: answered
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Sorular.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ReasonPromptList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+  /me/notifications:
+    get:
+      tags: [me, notifications]
+      operationId: listMyNotifications
+      summary: Uygulama içi bildirimler
+      description: İstemci kısa aralıklı sorgulama yapar (gerekirse SSE ile değiştirilir).
+      x-roles: [student, advisor, admin]
+      x-phase: 10
+      parameters:
+        - name: unread
+          in: query
+          schema: { type: boolean }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Bildirimler, en yeni önce.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/NotificationPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/notifications/{notificationId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/NotificationId'
+    patch:
+      tags: [me, notifications]
+      operationId: markNotificationRead
+      summary: Okundu olarak işaretle
+      x-roles: [student, advisor, admin]
+      x-phase: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/NotificationUpdate' }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /me/data-requests:
+    get:
+      tags: [me]
+      operationId: listMyDataRequests
+      summary: '"Verilerimi indir" ve "verilerimi sil" talepleri'
+      x-roles: [student, advisor, admin]
+      x-phase: 12
+      responses:
+        '200':
+          description: Talepler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/DataRequestList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+    post:
+      tags: [me]
+      operationId: createDataRequest
+      summary: Veri indirme ya da silme talebi oluştur
+      description: >-
+        İşlem worker'da yürür. Silme, kişisel verileri anonimleştirir; puan defteri ve
+        denetim kaydı gibi değiştirilemez kayıtlar kişiyle ilişkisi kesilerek korunur.
+        Aynı türde açık talep varsa onu döner (idempotent).
+      x-roles: [student, advisor, admin]
+      x-phase: 12
+      x-rate-limited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/DataRequestCreate' }
+      responses:
+        '200':
+          description: Aynı türde açık talep zaten var.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/DataRequest' }
+        '202':
+          description: Talep alındı.
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/DataRequest' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+
+  # --- Users -------------------------------------------------------------------
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Kullanıcıları listele
+      x-roles: [admin]
+      x-phase: 3
+      parameters:
+        - name: role
+          in: query
+          schema: { $ref: './components/schemas.yaml#/Role' }
+        - name: q
+          in: query
+          description: Ad ya da e-postada arama.
+          schema: { type: string, minLength: 2, maxLength: 100 }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Kullanıcılar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/UserPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /users/{userId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/UserId'
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Rol ata ya da hesabı devre dışı bırak (denetim kaydına yazılır)
+      description: Yönetici kendi rolünü düşüremez; son yönetici devre dışı bırakılamaz (`409`).
+      x-roles: [admin]
+      x-phase: 3
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/UserAdminUpdate' }
+      responses:
+        '200':
+          description: Güncel kullanıcı.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/UserAdminView' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+
+  # --- Communities ------------------------------------------------------------
+  /communities:
+    get:
+      tags: [communities]
+      operationId: listCommunities
+      summary: Toplulukları listele
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 100 }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Topluluklar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/CommunityPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    post:
+      tags: [communities]
+      operationId: createCommunity
+      summary: Topluluk oluştur
+      x-roles: [admin]
+      x-phase: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/CommunityCreate' }
+      responses:
+        '201':
+          description: Oluşturuldu.
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Community' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /communities/{communityId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/CommunityId'
+    get:
+      tags: [communities]
+      operationId: getCommunity
+      summary: Topluluk ayrıntısı
+      x-roles: [student, advisor, admin]
+      x-phase: 3
+      responses:
+        '200':
+          description: Topluluk.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Community' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+    patch:
+      tags: [communities]
+      operationId: updateCommunity
+      summary: Topluluğu güncelle ya da arşivle
+      x-roles: [admin]
+      x-phase: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/CommunityUpdate' }
+      responses:
+        '200':
+          description: Güncel topluluk.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Community' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /communities/{communityId}/members:
+    parameters:
+      - $ref: './components/parameters.yaml#/CommunityId'
+    get:
+      tags: [communities]
+      operationId: listCommunityMembers
+      summary: Üyeler
+      x-roles: [advisor, admin]
+      x-phase: 3
+      description: Danışman yalnızca kendi topluluğunun üyelerini görür.
+      parameters:
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Üyeler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/UserSummaryPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+    post:
+      tags: [communities]
+      operationId: addCommunityMember
+      summary: Öğrenciyi üye yap (idempotent)
+      x-roles: [advisor, admin]
+      x-phase: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/MembershipCreate' }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /communities/{communityId}/members/{userId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/CommunityId'
+      - $ref: './components/parameters.yaml#/UserId'
+    delete:
+      tags: [communities]
+      operationId: removeCommunityMember
+      summary: Üyelikten çıkar
+      x-roles: [advisor, admin]
+      x-phase: 3
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+  /communities/{communityId}/advisors:
+    parameters:
+      - $ref: './components/parameters.yaml#/CommunityId'
+    post:
+      tags: [communities]
+      operationId: addCommunityAdvisor
+      summary: Danışman ata (idempotent; denetim kaydına yazılır)
+      x-roles: [admin]
+      x-phase: 3
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/MembershipCreate' }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /communities/{communityId}/advisors/{userId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/CommunityId'
+      - $ref: './components/parameters.yaml#/UserId'
+    delete:
+      tags: [communities]
+      operationId: removeCommunityAdvisor
+      summary: Danışmanlığı kaldır (denetim kaydına yazılır)
+      x-roles: [admin]
+      x-phase: 3
+      x-audited: true
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+
+  # --- Events ------------------------------------------------------------------
+  /events:
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: Etkinlikleri listele (havuz, takvim, arşiv)
+      description: >-
+        Öğrenci yalnızca `pool`, `scheduled`, `completed` ve kendi önerdiği etkinlikleri görür;
+        danışman ek olarak kendi onayını bekleyenleri görür. `ETag` ile yeniden doğrulanır.
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            maxItems: 6
+            items: { $ref: './components/schemas.yaml#/EventStatus' }
+        - $ref: './components/parameters.yaml#/Category'
+        - name: from
+          in: query
+          description: Bu andan sonra başlayanlar (takvim görünümü).
+          schema: { $ref: './components/schemas.yaml#/Timestamp' }
+        - name: to
+          in: query
+          schema: { $ref: './components/schemas.yaml#/Timestamp' }
+        - name: mine
+          in: query
+          description: Yalnızca çağıranın önerdiği ya da danışmanı olduğu etkinlikler.
+          schema: { type: boolean }
+        - name: communityId
+          in: query
+          schema: { $ref: './components/schemas.yaml#/PublicId' }
+        - name: tag
+          in: query
+          schema: { $ref: './components/schemas.yaml#/Tag' }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 100 }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+        - $ref: './components/parameters.yaml#/IfNoneMatch'
+      responses:
+        '200':
+          description: Etkinlikler.
+          headers:
+            ETag: { $ref: './components/headers.yaml#/ETag' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/EventPage' }
+        '304': { $ref: './components/responses.yaml#/NotModified' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    post:
+      tags: [events]
+      operationId: createEvent
+      summary: Etkinlik öner
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/EventCreate' }
+      responses:
+        '201':
+          description: Oluşturuldu (`pending_approval` ya da `pool`).
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [events]
+      operationId: getEvent
+      summary: Etkinlik ayrıntısı
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      parameters:
+        - $ref: './components/parameters.yaml#/IfNoneMatch'
+      responses:
+        '200':
+          description: Etkinlik.
+          headers:
+            ETag: { $ref: './components/headers.yaml#/ETag' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '304': { $ref: './components/responses.yaml#/NotModified' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+    patch:
+      tags: [events]
+      operationId: updateEvent
+      summary: Etkinliği düzenle
+      description: Öneren, ilgili danışman ya da yönetici. Takvimdeki etkinlikte kısıtlı alanlar.
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/EventUpdate' }
+      responses:
+        '200':
+          description: Güncel etkinlik.
+          headers:
+            ETag: { $ref: './components/headers.yaml#/ETag' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/review:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    put:
+      tags: [events]
+      operationId: reviewEvent
+      summary: Öğrenci etkinliğini onayla ya da reddet
+      description: Danışman yalnızca kendisine atanmış etkinlikleri inceler. Onaylanan etkinlik havuza girer.
+      x-roles: [advisor, admin]
+      x-phase: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/EventReview' }
+      responses:
+        '200':
+          description: Güncel etkinlik.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/cancellation:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    put:
+      tags: [events]
+      operationId: cancelEvent
+      summary: Etkinliği iptal et
+      description: İptal edilen etkinlik puanları etkilemez; başvuranlara bildirim gider.
+      x-roles: [advisor, admin]
+      x-phase: 4
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/EventCancellation' }
+      responses:
+        '200':
+          description: İptal edildi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/cover:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    put:
+      tags: [events, media]
+      operationId: setEventCover
+      summary: Kapak görselini ayarla
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/MediaRef' }
+      responses:
+        '200':
+          description: Güncel etkinlik.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Event' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    delete:
+      tags: [events, media]
+      operationId: removeEventCover
+      summary: Kapak görselini kaldır
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+  /events/{eventId}/photos:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [events, media]
+      operationId: listEventPhotos
+      summary: Fotoğraf galerisi
+      x-roles: [student, advisor, admin]
+      x-phase: 9
+      responses:
+        '200':
+          description: Fotoğraflar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/PhotoList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+    post:
+      tags: [events, media]
+      operationId: addEventPhoto
+      summary: Galeriye fotoğraf ekle
+      x-roles: [advisor, admin]
+      x-phase: 9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/MediaRef' }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/photos/{mediaId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+      - $ref: './components/parameters.yaml#/MediaId'
+    delete:
+      tags: [events, media]
+      operationId: removeEventPhoto
+      summary: Fotoğrafı galeriden kaldır
+      x-roles: [advisor, admin]
+      x-phase: 9
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+  /events/{eventId}/summary:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [events]
+      operationId: getEventSummary
+      summary: Arşiv sayfası (gerçekleşen etkinlik)
+      description: Bilgiler, fotoğraf galerisi, katılımcı sayısı, oylama sonuçları ve ortalama puan.
+      x-roles: [student, advisor, admin]
+      x-phase: 9
+      parameters:
+        - $ref: './components/parameters.yaml#/IfNoneMatch'
+      responses:
+        '200':
+          description: Özet.
+          headers:
+            ETag: { $ref: './components/headers.yaml#/ETag' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/EventSummaryReport' }
+        '304': { $ref: './components/responses.yaml#/NotModified' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+
+  # --- Media -------------------------------------------------------------------
+  /media:
+    post:
+      tags: [media]
+      operationId: uploadMedia
+      summary: Görsel yükle
+      description: >-
+        Yükleme özel kovaya yazılır; worker AVIF/WebP ve birkaç boyutta türev üretir, en ve boyu
+        kaydeder. Fotoğraf yüklemek için fotoğraf rızası gerekmez; galeriye eklemek danışman ve
+        yöneticiye özeldir. Hız sınırlıdır.
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      x-rate-limited: true
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: './components/schemas.yaml#/MediaUpload' }
+      responses:
+        '202':
+          description: 'Alındı; türevler hazırlanıyor (`status` = `pending`).'
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Media' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '413': { $ref: './components/responses.yaml#/PayloadTooLarge' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /media/{mediaId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/MediaId'
+    get:
+      tags: [media]
+      operationId: getMedia
+      summary: Görsel bilgisi ve türevleri
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      responses:
+        '200':
+          description: Görsel.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Media' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+  /media/{mediaId}/variants/{variant}:
+    parameters:
+      - $ref: './components/parameters.yaml#/MediaId'
+      - name: variant
+        in: path
+        required: true
+        description: '`<genişlik>.<biçim>`, ör. `640.avif`.'
+        schema: { type: string, pattern: '^[1-9][0-9]{1,4}\.(avif|webp|jpeg)$' }
+    get:
+      tags: [media]
+      operationId: getMediaVariant
+      summary: Görsel türevinin baytları
+      description: Kovadan akıtılır; `Cache-Control` uzun ömürlüdür çünkü türevler değişmez.
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      responses:
+        '200':
+          description: Görsel.
+          content:
+            image/avif: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+
+  # --- Voting ----------------------------------------------------------------
+  /ballots:
+    get:
+      tags: [voting]
+      operationId: getBallot
+      summary: Günün oylama listesi
+      description: Kısa ömürlü Redis önbelleğinden sunulur. Oylama 00.00–23.59 (Europe/Istanbul).
+      x-roles: [student, advisor, admin]
+      x-phase: 5
+      parameters:
+        - $ref: './components/parameters.yaml#/VotingDateQuery'
+      responses:
+        '200':
+          description: Oylama listesi.
+          headers:
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Ballot' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /ballots/{date}:
+    parameters:
+      - $ref: './components/parameters.yaml#/VotingDate'
+    put:
+      tags: [voting]
+      operationId: setBallot
+      summary: Ertesi günün oylamasını belirle (her kategoriden 3, toplam 9)
+      description: Yalnızca onaylı havuzdaki (`pool`) etkinlikler; oylama başladıktan sonra değiştirilemez (`409`).
+      x-roles: [admin]
+      x-phase: 5
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/BallotSelection' }
+      responses:
+        '200':
+          description: Oylama listesi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Ballot' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /votes:
+    post:
+      tags: [voting]
+      operationId: castVote
+      summary: Oy ver (kategori başına bir)
+      description: >-
+        İdempotent: aynı girişe tekrar oy `200` ile aynı oyu döner. Aynı gün ve kategoride başka
+        bir girişe oy `409`. Oylama saatleri dışında `409`. Hız sınırlıdır.
+      x-roles: [student]
+      x-phase: 5
+      x-rate-limited: true
+      x-idempotent: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/VoteCreate' }
+      responses:
+        '200':
+          description: Bu oy zaten verilmişti.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Vote' }
+        '201':
+          description: Oy kaydedildi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Vote' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /voting-results:
+    get:
+      tags: [voting]
+      operationId: listVotingResults
+      summary: Oylama sonuçları
+      x-roles: [student, advisor, admin]
+      x-phase: 5
+      parameters:
+        - $ref: './components/parameters.yaml#/VotingDateQuery'
+      responses:
+        '200':
+          description: Kategori başına sonuç (oylama kapandıktan sonra).
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/VotingResultList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /voting-results/{resultId}/tie-decision:
+    parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: { $ref: './components/schemas.yaml#/PublicId' }
+    put:
+      tags: [voting]
+      operationId: decideTie
+      summary: Eşitlikte kazananı belirle (denetim kaydına yazılır)
+      x-roles: [admin]
+      x-phase: 5
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/TieDecision' }
+      responses:
+        '200':
+          description: Sonuç kesinleşti; kazanan takvime eklendi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/VotingResult' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+
+  # --- Applications ------------------------------------------------------------
+  /events/{eventId}/applications:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [applications]
+      operationId: listEventApplications
+      summary: Başvuranlar ve bekleme listesi
+      x-roles: [advisor, admin]
+      x-phase: 6
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [confirmed, waitlisted, cancelled] }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Başvurular.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ApplicationPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    post:
+      tags: [applications]
+      operationId: applyToEvent
+      summary: Takvimdeki etkinliğe başvur
+      description: >-
+        Kontenjan transaction ve satır kilidiyle korunur; doluysa bekleme listesine alınır.
+        İdempotent: aynı öğrencinin tekrar başvurusu mevcut başvuruyu `200` ile döner; iptal
+        edilmiş başvuru yeniden etkinleşir. Oy vermekten bağımsızdır.
+      x-roles: [student]
+      x-phase: 6
+      x-rate-limited: true
+      x-idempotent: true
+      responses:
+        '200':
+          description: Başvuru zaten vardı.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Application' }
+        '201':
+          description: Başvuru alındı (`confirmed` ya da `waitlisted`).
+          headers:
+            Location: { $ref: './components/headers.yaml#/Location' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Application' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /applications/{applicationId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/ApplicationId'
+    delete:
+      tags: [applications]
+      operationId: cancelApplication
+      summary: Başvuruyu iptal et
+      description: Yalnızca başvuru sahibi. Onaylı yer boşalırsa bekleme listesindeki ilk öğrenci yükseltilir ve bildirim alır. İdempotent.
+      x-roles: [student]
+      x-phase: 6
+      x-idempotent: true
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+
+  # --- Attendance --------------------------------------------------------------
+  /events/{eventId}/qr-token:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [attendance]
+      operationId: getQrToken
+      summary: Ekranda gösterilecek güncel QR
+      description: >-
+        20–30 saniyede bir yenilenen, sunucu imzalı, kısa ömürlü belirteç. İstemci
+        `refreshAfterSeconds` sonra yeniden ister. Yalnızca etkinlik süresince.
+      x-roles: [advisor, admin]
+      x-phase: 7
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string, enum: [entry, exit, spot_check], default: entry }
+      responses:
+        '200':
+          description: QR içeriği.
+          headers:
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/QrToken' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+  /attendance-scans:
+    post:
+      tags: [attendance]
+      operationId: scanAttendance
+      summary: QR okut ve konumu doğrula
+      description: >-
+        Belirteç, oturum ve konum birlikte doğrulanır. Konum izni öğrencinin dokunuşuyla istenir
+        ve konum rızası gerekir. Koordinatlar saklanmaz; yalnızca sonuç, uzaklık ve zaman tutulur.
+        İdempotent: aynı belirteçle tekrar okutma aynı sonucu döner. Hız sınırlıdır.
+      x-roles: [student]
+      x-phase: 7
+      x-rate-limited: true
+      x-idempotent: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/AttendanceScanCreate' }
+      responses:
+        '200':
+          description: Okutma sonucu (kabul ya da gerekçeli ret). Önbelleğe alınmaz.
+          headers:
+            Cache-Control: { $ref: './components/headers.yaml#/NoStore' }
+            RateLimit-Limit: { $ref: './components/headers.yaml#/RateLimitLimit' }
+            RateLimit-Remaining: { $ref: './components/headers.yaml#/RateLimitRemaining' }
+            RateLimit-Reset: { $ref: './components/headers.yaml#/RateLimitReset' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/AttendanceScanResult' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+  /events/{eventId}/attendances:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [attendance]
+      operationId: listEventAttendances
+      summary: Katılım durumu
+      x-roles: [advisor, admin]
+      x-phase: 7
+      parameters:
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Katılımlar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/AttendancePage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/excuses:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [attendance]
+      operationId: listEventExcuses
+      summary: Mazeretler
+      x-roles: [advisor, admin]
+      x-phase: 8
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected] }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Mazeretler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ExcusePage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    post:
+      tags: [attendance]
+      operationId: submitExcuse
+      summary: Mazeret bildir
+      x-roles: [student]
+      x-phase: 8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/ExcuseCreate' }
+      responses:
+        '201':
+          description: Mazeret alındı.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Excuse' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /excuses/{excuseId}:
+    parameters:
+      - $ref: './components/parameters.yaml#/ExcuseId'
+    patch:
+      tags: [attendance]
+      operationId: reviewExcuse
+      summary: Mazereti onayla ya da reddet
+      description: Onaylanan mazerette puan düşülmez; daha önce düşüldüyse telafi hareketi yazılır.
+      x-roles: [advisor, admin]
+      x-phase: 8
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/ExcuseReview' }
+      responses:
+        '200':
+          description: Güncel mazeret.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Excuse' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+
+  # --- Scoring -----------------------------------------------------------------
+  /score-rules:
+    get:
+      tags: [scoring]
+      operationId: listScoreRules
+      summary: Güncel puan tablosu
+      x-roles: [student, advisor, admin]
+      x-phase: 8
+      responses:
+        '200':
+          description: Kurallar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ScoreRuleList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+  /score-rules/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema: { $ref: './components/schemas.yaml#/ScoreRuleCode' }
+    put:
+      tags: [scoring]
+      operationId: updateScoreRule
+      summary: Puan değerini değiştir (yeni sürüm; denetim kaydına yazılır)
+      description: Değişiklik yalnızca bundan sonra puanlanacak etkinlikleri etkiler.
+      x-roles: [admin]
+      x-phase: 8
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/ScoreRuleUpdate' }
+      responses:
+        '200':
+          description: Yeni kural sürümü.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/ScoreRule' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /seasons:
+    get:
+      tags: [scoring]
+      operationId: listSeasons
+      summary: Sezonlar (akademik yıllar)
+      x-roles: [student, advisor, admin]
+      x-phase: 8
+      responses:
+        '200':
+          description: Sezonlar, en yeni önce.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/SeasonList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+  /leaderboard:
+    get:
+      tags: [scoring]
+      operationId: getLeaderboard
+      summary: Liderlik tablosu (ilk 10)
+      description: Geçmiş sezonlar arşivden sunulur. Öğrenciler `me` alanında kendi sırasını görür.
+      x-roles: [student, advisor, admin]
+      x-phase: 8
+      parameters:
+        - $ref: './components/parameters.yaml#/SeasonName'
+        - $ref: './components/parameters.yaml#/IfNoneMatch'
+      responses:
+        '200':
+          description: Tablo.
+          headers:
+            ETag: { $ref: './components/headers.yaml#/ETag' }
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Leaderboard' }
+        '304': { $ref: './components/responses.yaml#/NotModified' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+
+  # --- Feedback ----------------------------------------------------------------
+  /reason-prompts/{reasonPromptId}/answer:
+    parameters:
+      - $ref: './components/parameters.yaml#/ReasonPromptId'
+    put:
+      tags: [feedback]
+      operationId: answerReasonPrompt
+      summary: Neden sorusunu yanıtla (tek, açık uçlu)
+      x-roles: [student]
+      x-phase: 9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/ReasonAnswer' }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /events/{eventId}/ratings:
+    parameters:
+      - $ref: './components/parameters.yaml#/EventId'
+    get:
+      tags: [feedback]
+      operationId: getEventRatings
+      summary: Ortalama puan ve yorumlar
+      x-roles: [advisor, admin]
+      x-phase: 9
+      parameters:
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Değerlendirmeler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/RatingReport' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+    post:
+      tags: [feedback]
+      operationId: rateEvent
+      summary: Etkinliği değerlendir (1–5 ve yorum)
+      description: Yalnızca katılımı doğrulanan öğrenci, bir kez.
+      x-roles: [student]
+      x-phase: 9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/RatingCreate' }
+      responses:
+        '201':
+          description: Değerlendirme kaydedildi.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Rating' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '404': { $ref: './components/responses.yaml#/NotFound' }
+        '409': { $ref: './components/responses.yaml#/Conflict' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+
+  # --- Notifications (webhook) ------------------------------------------------
+  /webhooks/whatsapp:
+    get:
+      tags: [notifications]
+      operationId: verifyWhatsappWebhook
+      summary: Meta webhook doğrulama
+      description: '`hub.verify_token` sabit zamanlı karşılaştırmayla doğrulanır.'
+      security: []
+      x-roles: [public]
+      x-phase: 10
+      parameters:
+        - { name: hub.mode, in: query, required: true, schema: { type: string, const: subscribe } }
+        - {
+            name: hub.verify_token,
+            in: query,
+            required: true,
+            schema: { type: string, maxLength: 256 },
+          }
+        - {
+            name: hub.challenge,
+            in: query,
+            required: true,
+            schema: { type: string, maxLength: 256 },
+          }
+      responses:
+        '200':
+          description: '`hub.challenge` düz metin olarak döner.'
+          content:
+            text/plain:
+              schema: { type: string }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+    post:
+      tags: [notifications]
+      operationId: receiveWhatsappWebhook
+      summary: WhatsApp durum ve mesaj olayları
+      description: >-
+        `X-Hub-Signature-256` HMAC-SHA256 ile ve `crypto.timingSafeEqual` kullanılarak doğrulanır;
+        algoritma istekten alınmaz. Hemen `200` döner, işleme kuyrukta yapılır, yinelenen olay ayıklanır.
+      security: []
+      x-roles: [public]
+      x-phase: 10
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema: { type: string, pattern: '^sha256=[0-9a-f]{64}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Alındı.
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '413': { $ref: './components/responses.yaml#/PayloadTooLarge' }
+
+  # --- Administration ---------------------------------------------------------
+  /tags:
+    get:
+      tags: [admin]
+      operationId: listTags
+      summary: Anahtar kelime / ilgi alanı sözlüğü
+      x-roles: [student, advisor, admin]
+      x-phase: 4
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 50 }
+      responses:
+        '200':
+          description: Etiketler (en fazla 100).
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/TagList' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+  /settings:
+    get:
+      tags: [admin]
+      operationId: getSettings
+      summary: Sistem ayarları
+      x-roles: [admin]
+      x-phase: 5
+      responses:
+        '200':
+          description: Ayarlar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Settings' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+    patch:
+      tags: [admin]
+      operationId: updateSettings
+      summary: Ayarları değiştir (denetim kaydına yazılır)
+      x-roles: [admin]
+      x-phase: 5
+      x-audited: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './components/schemas.yaml#/SettingsUpdate' }
+      responses:
+        '200':
+          description: Güncel ayarlar.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/Settings' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /audit-log:
+    get:
+      tags: [admin]
+      operationId: listAuditLog
+      summary: Denetim kaydı
+      x-roles: [admin]
+      x-phase: 3
+      parameters:
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 80 }
+        - $ref: './components/parameters.yaml#/Limit'
+        - $ref: './components/parameters.yaml#/Cursor'
+      responses:
+        '200':
+          description: Kayıtlar, en yeni önce.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/AuditPage' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /analytics/overview:
+    get:
+      tags: [admin]
+      operationId: getAnalyticsOverview
+      summary: Yönetici paneli göstergeleri
+      description: Materialized view'lardan hesaplanır. Danışman yalnızca yetkili olduğu etkinlikleri görür.
+      x-roles: [advisor, admin]
+      x-phase: 11
+      parameters:
+        - $ref: './components/parameters.yaml#/SeasonName'
+        - $ref: './components/parameters.yaml#/Category'
+      responses:
+        '200':
+          description: Göstergeler.
+          content:
+            application/json:
+              schema: { $ref: './components/schemas.yaml#/AnalyticsOverview' }
+        '401': { $ref: './components/responses.yaml#/Unauthenticated' }
+        '403': { $ref: './components/responses.yaml#/Forbidden' }
+        '422': { $ref: './components/responses.yaml#/ValidationFailed' }
+  /security-reports:
+    post:
+      tags: [admin]
+      operationId: receiveSecurityReport
+      summary: CSP ve Trusted Types ihlal raporları
+      description: Tarayıcının Reporting API'si gönderir. Boyut ve hız sınırlıdır; içerik loglanır, saklanmaz.
+      security: []
+      x-roles: [public]
+      x-phase: 3
+      x-rate-limited: true
+      requestBody:
+        required: true
+        content:
+          application/reports+json:
+            schema: { type: array, maxItems: 50, items: { type: object } }
+          application/csp-report:
+            schema: { type: object }
+      responses:
+        '204': { $ref: './components/responses.yaml#/NoContent' }
+        '413': { $ref: './components/responses.yaml#/PayloadTooLarge' }
+        '429': { $ref: './components/responses.yaml#/RateLimited' }
+
 components:
-  headers:
-    RequestId:
-      description: Her yanıtta dönen UUIDv7 istek kimliği; loglarda ve kuyruk işlerinde taşınır.
-      schema: { type: string, format: uuid }
-    NoStore:
-      schema: { type: string, const: no-store }
-    RetryAfter:
-      description: 429 yanıtlarında, saniye cinsinden.
-      schema: { type: integer, minimum: 1 }
-  schemas:
-    HealthStatus:
-      type: string
-      enum: [ok, error]
-    HealthResponse:
-      type: object
-      additionalProperties: false
-      required: [status, checks]
-      properties:
-        status: { $ref: '#/components/schemas/HealthStatus' }
-        checks:
-          type: object
-          additionalProperties: { $ref: '#/components/schemas/HealthStatus' }
-    FieldError:
-      type: object
-      additionalProperties: false
-      required: [field, message]
-      properties:
-        field: { type: string, minLength: 1 }
-        message: { type: string, minLength: 1 }
-    ErrorBody:
-      description: Tüm uç noktaların tek hata gövdesi. İç hata ayrıntısı hiçbir zaman dönmez.
-      type: object
-      additionalProperties: false
-      required: [code, message, fieldErrors, requestId]
-      properties:
-        code:
-          type: string
-          examples:
-            [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RATE_LIMITED, INTERNAL_ERROR]
-        message: { type: string, description: Kullanıcıya gösterilebilir Türkçe mesaj }
-        fieldErrors:
-          type: array
-          items: { $ref: '#/components/schemas/FieldError' }
-        requestId: { type: string, minLength: 1 }
-  responses:
-    Unauthenticated:
-      description: Oturum yok ya da geçersiz.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorBody' }
-    Forbidden:
-      description: Oturum var ama yetki yok.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorBody' }
-    ValidationFailed:
-      description: Girdi şemaya uymuyor.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorBody' }
-    RateLimited:
-      description: Hız sınırı aşıldı.
-      headers:
-        Retry-After: { $ref: '#/components/headers/RetryAfter' }
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorBody' }
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-session
+      description: Sunucu taraflı oturum (Redis). `Secure; HttpOnly; SameSite=Lax`.
