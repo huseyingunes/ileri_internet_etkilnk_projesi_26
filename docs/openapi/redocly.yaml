@@ -1,0 +1,29 @@
+extends:
+  - recommended
+
+rules:
+  operation-4xx-response: error
+  operation-operationId-unique: error
+  security-defined: error
+  no-unused-components: warn
+  # Project conventions (prompt section 6 and 9).
+  rule/operation-roles:
+    subject:
+      type: Operation
+      property: x-roles
+    assertions:
+      defined: true
+    message: Every operation must declare its allowed roles in x-roles (deny by default).
+  rule/operation-phase:
+    subject:
+      type: Operation
+      property: x-phase
+    assertions:
+      defined: true
+    message: Every operation must declare the implementing phase in x-phase.
+  rule/path-kebab-case:
+    subject:
+      type: PathItem
+    assertions:
+      pattern: '^(/([a-z][a-z0-9-]*|\{[a-zA-Z]+\}))+$'
+    message: Paths use plural kebab-case nouns and camelCase parameters.

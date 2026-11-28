@@ -1,0 +1,1043 @@
+# JSON uses camelCase. Only public ids (UUIDv7) are exposed; internal bigint
+# keys never leave the API. Timestamps are RFC 3339 with offset; dates are
+# Europe/Istanbul calendar dates.
+
+# --- Primitives -------------------------------------------------------------
+
+PublicId:
+  type: string
+  format: uuid
+  description: UUIDv7 public id.
+  example: 01938a5d-ac96-7a4b-bcce-b302099a8057
+Timestamp:
+  type: string
+  format: date-time
+  example: '2026-12-01T13:00:00+03:00'
+Category:
+  type: string
+  enum: [science, culture, sports]
+  description: Bilim, Kültür, Spor.
+Role:
+  type: string
+  enum: [student, advisor, admin]
+NotificationType:
+  type: string
+  enum:
+    - vote_result
+    - vote_invitation
+    - application_confirmed
+    - application_promoted
+    - event_reminder
+    - rating_request
+    - reason_request
+    - points_changed
+NotificationChannel:
+  type: string
+  enum: [email, whatsapp]
+ConsentKind:
+  type: string
+  enum: [location, whatsapp, photo]
+Tag:
+  type: string
+  pattern: '^[a-zçğıöşü0-9][a-zçğıöşü0-9 -]{0,49}$'
+  description: Küçük harfli anahtar kelime / ilgi alanı.
+PlainText:
+  type: string
+  description: Düz metin. HTML kabul edilmez ve gösterilmez.
+
+# --- Errors and pagination ---------------------------------------------------
+
+FieldError:
+  type: object
+  additionalProperties: false
+  required: [field, message]
+  properties:
+    field: { type: string, minLength: 1 }
+    message: { type: string, minLength: 1 }
+ErrorBody:
+  type: object
+  additionalProperties: false
+  description: Tüm uç noktaların tek hata gövdesi.
+  required: [code, message, fieldErrors, requestId]
+  properties:
+    code:
+      type: string
+      enum:
+        - BAD_REQUEST
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - METHOD_NOT_ALLOWED
+        - CONFLICT
+        - PAYLOAD_TOO_LARGE
+        - UNSUPPORTED_MEDIA_TYPE
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+    message: { type: string, description: Kullanıcıya gösterilebilir Türkçe mesaj. }
+    fieldErrors:
+      type: array
+      items: { $ref: '#/FieldError' }
+    requestId: { type: string, minLength: 1 }
+PageInfo:
+  type: object
+  additionalProperties: false
+  required: [nextCursor]
+  properties:
+    nextCursor:
+      type: [string, 'null']
+      description: Sonraki sayfa için `cursor`; son sayfada `null`.
+
+# --- Health -------------------------------------------------------------------
+
+HealthStatus:
+  type: string
+  enum: [ok, error]
+HealthResponse:
+  type: object
+  additionalProperties: false
+  required: [status, checks]
+  properties:
+    status: { $ref: '#/HealthStatus' }
+    checks:
+      type: object
+      additionalProperties: { $ref: '#/HealthStatus' }
+
+# --- Users and profile ------------------------------------------------------
+
+UserSummary:
+  type: object
+  additionalProperties: false
+  required: [id, displayName, role]
+  properties:
+    id: { $ref: '#/PublicId' }
+    displayName: { type: string }
+    role: { $ref: '#/Role' }
+UserAdminView:
+  allOf:
+    - $ref: '#/UserSummary'
+    - type: object
+      required: [email, isActive, createdAt]
+      properties:
+        email: { type: string, format: email }
+        isActive: { type: boolean }
+        lastLoginAt: { $ref: '#/Timestamp' }
+        createdAt: { $ref: '#/Timestamp' }
+UserPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/UserAdminView' } }
+    page: { $ref: '#/PageInfo' }
+UserAdminUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: Rol değişikliği ve hesap durumu; her değişiklik denetim kaydına yazılır.
+  properties:
+    role: { $ref: '#/Role' }
+    isActive: { type: boolean }
+Me:
+  type: object
+  additionalProperties: false
+  required: [id, displayName, email, role, communities]
+  properties:
+    id: { $ref: '#/PublicId' }
+    displayName: { type: string }
+    email: { type: string, format: email }
+    role: { $ref: '#/Role' }
+    studentNumber: { type: string, description: Yalnızca öğrencilerde. }
+    phone:
+      type: string
+      pattern: '^\+[1-9][0-9]{7,14}$'
+      description: E.164; yalnızca WhatsApp bildirimi için, WhatsApp rızası varsa.
+    communities:
+      type: array
+      items: { $ref: '#/CommunitySummary' }
+MeUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    phone:
+      type: [string, 'null']
+      pattern: '^\+[1-9][0-9]{7,14}$'
+Consent:
+  type: object
+  additionalProperties: false
+  required: [kind, granted, textVersion]
+  properties:
+    kind: { $ref: '#/ConsentKind' }
+    granted: { type: boolean }
+    textVersion: { type: string, description: Onaylanan açık rıza metninin sürümü. }
+    grantedAt: { $ref: '#/Timestamp' }
+ConsentGrant:
+  type: object
+  additionalProperties: false
+  required: [textVersion]
+  properties:
+    textVersion: { type: string, minLength: 1, maxLength: 40 }
+NotificationPreference:
+  type: object
+  additionalProperties: false
+  required: [channel, type, enabled]
+  properties:
+    channel: { $ref: '#/NotificationChannel' }
+    type: { $ref: '#/NotificationType' }
+    enabled: { type: boolean }
+NotificationPreferenceList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 16
+      items: { $ref: '#/NotificationPreference' }
+InterestList:
+  type: object
+  additionalProperties: false
+  required: [selected, inferred]
+  properties:
+    selected: { type: array, maxItems: 30, items: { $ref: '#/Tag' } }
+    inferred:
+      type: array
+      readOnly: true
+      description: Oy, katılım ve değerlendirmelerden türetilen ilgi alanları.
+      items: { $ref: '#/Tag' }
+InterestUpdate:
+  type: object
+  additionalProperties: false
+  required: [selected]
+  properties:
+    selected: { type: array, maxItems: 30, uniqueItems: true, items: { $ref: '#/Tag' } }
+DataRequestKind:
+  type: string
+  enum: [export, delete]
+DataRequestCreate:
+  type: object
+  additionalProperties: false
+  required: [kind]
+  properties:
+    kind: { $ref: '#/DataRequestKind' }
+DataRequest:
+  type: object
+  additionalProperties: false
+  required: [id, kind, status, requestedAt]
+  properties:
+    id: { $ref: '#/PublicId' }
+    kind: { $ref: '#/DataRequestKind' }
+    status: { type: string, enum: [pending, processing, completed, failed] }
+    requestedAt: { $ref: '#/Timestamp' }
+    completedAt: { $ref: '#/Timestamp' }
+    downloadUrl:
+      type: string
+      format: uri-reference
+      description: Yalnızca tamamlanmış dışa aktarmada; kısa ömürlü, oturuma bağlı.
+DataRequestList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, items: { $ref: '#/DataRequest' } }
+
+# --- Communities --------------------------------------------------------------
+
+CommunitySummary:
+  type: object
+  additionalProperties: false
+  required: [id, name]
+  properties:
+    id: { $ref: '#/PublicId' }
+    name: { type: string }
+Community:
+  type: object
+  additionalProperties: false
+  required: [id, name, description, memberCount, advisors, archived]
+  properties:
+    id: { $ref: '#/PublicId' }
+    name: { type: string }
+    description: { $ref: '#/PlainText' }
+    memberCount: { type: integer, minimum: 0 }
+    advisors: { type: array, items: { $ref: '#/UserSummary' } }
+    archived: { type: boolean }
+CommunityPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/Community' } }
+    page: { $ref: '#/PageInfo' }
+CommunityCreate:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name: { type: string, minLength: 2, maxLength: 120 }
+    description: { type: string, maxLength: 2000 }
+CommunityUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    name: { type: string, minLength: 2, maxLength: 120 }
+    description: { type: string, maxLength: 2000 }
+    archived: { type: boolean }
+MembershipCreate:
+  type: object
+  additionalProperties: false
+  required: [userId]
+  properties:
+    userId: { $ref: '#/PublicId' }
+UserSummaryPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/UserSummary' } }
+    page: { $ref: '#/PageInfo' }
+
+# --- Media --------------------------------------------------------------------
+
+MediaVariant:
+  type: object
+  additionalProperties: false
+  required: [url, format, width, height]
+  properties:
+    url: { type: string, format: uri-reference }
+    format: { type: string, enum: [avif, webp, jpeg] }
+    width: { type: integer, minimum: 1 }
+    height: { type: integer, minimum: 1 }
+Media:
+  type: object
+  additionalProperties: false
+  required: [id, status, variants]
+  description: '`srcset`/`sizes` için türevler; `width`/`height` yerleşim kaymasını önlemek içindir.'
+  properties:
+    id: { $ref: '#/PublicId' }
+    status: { type: string, enum: [pending, ready, failed] }
+    width: { type: integer, minimum: 1 }
+    height: { type: integer, minimum: 1 }
+    alt: { type: string, maxLength: 300 }
+    variants: { type: array, items: { $ref: '#/MediaVariant' } }
+MediaUpload:
+  type: object
+  required: [file]
+  properties:
+    file:
+      type: string
+      format: binary
+      description: JPEG, PNG, WebP ya da AVIF; en fazla 10 MB. İçerik türü dosya imzasından doğrulanır.
+    alt: { type: string, maxLength: 300, description: Alternatif metin (erişilebilirlik). }
+MediaRef:
+  type: object
+  additionalProperties: false
+  required: [mediaId]
+  properties:
+    mediaId: { $ref: '#/PublicId' }
+PhotoList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, items: { $ref: '#/Media' } }
+
+# --- Events -------------------------------------------------------------------
+
+EventStatus:
+  type: string
+  enum: [pending_approval, rejected, pool, scheduled, completed, cancelled]
+Organizer:
+  type: object
+  additionalProperties: false
+  required: [kind, id, name]
+  description: Düzenleyen ya bir kişi ya da bir topluluktur.
+  properties:
+    kind: { type: string, enum: [user, community] }
+    id: { $ref: '#/PublicId' }
+    name: { type: string }
+Location:
+  type: object
+  additionalProperties: false
+  required: [name, latitude, longitude]
+  properties:
+    name: { type: string, minLength: 1, maxLength: 200 }
+    latitude: { type: number, minimum: -90, maximum: 90 }
+    longitude: { type: number, minimum: -180, maximum: 180 }
+EventSummary:
+  type: object
+  additionalProperties: false
+  required: [id, title, category, status, startsAt, endsAt, location, organizer, capacity]
+  properties:
+    id: { $ref: '#/PublicId' }
+    title: { type: string }
+    category: { $ref: '#/Category' }
+    status: { $ref: '#/EventStatus' }
+    startsAt: { $ref: '#/Timestamp' }
+    endsAt: { $ref: '#/Timestamp' }
+    location: { $ref: '#/Location' }
+    organizer: { $ref: '#/Organizer' }
+    capacity: { type: integer, minimum: 1 }
+    cover: { $ref: '#/Media' }
+    tags: { type: array, items: { $ref: '#/Tag' } }
+Event:
+  allOf:
+    - $ref: '#/EventSummary'
+    - type: object
+      required:
+        [
+          description,
+          participationRequirements,
+          attendanceRadiusM,
+          qrRefreshSeconds,
+          createdAt,
+          viewer,
+        ]
+      properties:
+        description: { $ref: '#/PlainText' }
+        participationRequirements: { $ref: '#/PlainText' }
+        advisor: { $ref: '#/UserSummary' }
+        attendanceRadiusM: { type: integer, minimum: 1, maximum: 5000 }
+        qrRefreshSeconds: { type: integer, minimum: 20, maximum: 30 }
+        confirmedCount: { type: integer, minimum: 0 }
+        waitlistCount: { type: integer, minimum: 0 }
+        rejectionReason: { $ref: '#/PlainText' }
+        cancellationReason: { $ref: '#/PlainText' }
+        createdAt: { $ref: '#/Timestamp' }
+        viewer:
+          type: object
+          additionalProperties: false
+          description: Çağıran kullanıcıya özel durum.
+          required: [canEdit, canReview, canManagePhotos]
+          properties:
+            canEdit: { type: boolean }
+            canReview: { type: boolean }
+            canManagePhotos: { type: boolean }
+            application: { $ref: '#/Application' }
+EventPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/EventSummary' } }
+    page: { $ref: '#/PageInfo' }
+EventCreate:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      title,
+      description,
+      category,
+      startsAt,
+      endsAt,
+      location,
+      capacity,
+      attendanceRadiusM,
+      qrRefreshSeconds,
+    ]
+  description: >-
+    Öğrencinin etkinliği danışman onayına (`pending_approval`) düşer; danışman ve yöneticinin
+    etkinliği doğrudan havuza (`pool`) girer.
+  properties:
+    title: { type: string, minLength: 3, maxLength: 200 }
+    description: { type: string, minLength: 1, maxLength: 5000 }
+    category: { $ref: '#/Category' }
+    organizerCommunityId:
+      $ref: '#/PublicId'
+      description: Verilirse düzenleyen topluluktur (çağıran o topluluğun üyesi ya da danışmanı olmalı); verilmezse çağıranın kendisi.
+    advisorId: { $ref: '#/PublicId' }
+    startsAt: { $ref: '#/Timestamp' }
+    endsAt: { $ref: '#/Timestamp' }
+    location: { $ref: '#/Location' }
+    capacity: { type: integer, minimum: 1, maximum: 100000 }
+    attendanceRadiusM: { type: integer, minimum: 1, maximum: 5000 }
+    qrRefreshSeconds: { type: integer, minimum: 20, maximum: 30 }
+    participationRequirements: { type: string, maxLength: 2000 }
+    tags: { type: array, maxItems: 10, uniqueItems: true, items: { $ref: '#/Tag' } }
+EventUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: Takvime eklenmiş (`scheduled`) etkinlikte yalnızca açıklama, katılım koşulları ve etiketler değiştirilebilir.
+  properties:
+    title: { type: string, minLength: 3, maxLength: 200 }
+    description: { type: string, minLength: 1, maxLength: 5000 }
+    startsAt: { $ref: '#/Timestamp' }
+    endsAt: { $ref: '#/Timestamp' }
+    location: { $ref: '#/Location' }
+    capacity: { type: integer, minimum: 1, maximum: 100000 }
+    attendanceRadiusM: { type: integer, minimum: 1, maximum: 5000 }
+    qrRefreshSeconds: { type: integer, minimum: 20, maximum: 30 }
+    participationRequirements: { type: string, maxLength: 2000 }
+    tags: { type: array, maxItems: 10, uniqueItems: true, items: { $ref: '#/Tag' } }
+EventReview:
+  type: object
+  additionalProperties: false
+  required: [decision]
+  properties:
+    decision: { type: string, enum: [approve, reject] }
+    reason: { type: string, minLength: 1, maxLength: 2000, description: Reddederken zorunlu. }
+EventCancellation:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 2000 }
+EventSummaryReport:
+  type: object
+  additionalProperties: false
+  description: Gerçekleşen etkinliğin arşiv özeti.
+  required: [event, participantCount, voting, photos]
+  properties:
+    event: { $ref: '#/Event' }
+    participantCount: { type: integer, minimum: 0 }
+    averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 }
+    ratingCount: { type: integer, minimum: 0 }
+    voting: { type: array, items: { $ref: '#/VotingResult' } }
+    photos: { type: array, items: { $ref: '#/Media' } }
+
+# --- Daily selection and voting ----------------------------------------------
+
+BallotEntry:
+  type: object
+  additionalProperties: false
+  required: [id, event]
+  properties:
+    id: { type: string, description: Oylama girişinin kimliği (gün + kategori + etkinlik). }
+    event: { $ref: '#/EventSummary' }
+    voteCount:
+      type: [integer, 'null']
+      minimum: 0
+      description: Oylama sürerken gösterilip gösterilmeyeceği Aşama 5'te kararlaştırılacak; gizliyse `null`.
+Ballot:
+  type: object
+  additionalProperties: false
+  required: [date, opensAt, closesAt, categories]
+  properties:
+    date: { type: string, format: date }
+    opensAt: { $ref: '#/Timestamp' }
+    closesAt: { $ref: '#/Timestamp' }
+    categories:
+      type: object
+      additionalProperties: false
+      required: [science, culture, sports]
+      properties:
+        science: { type: array, maxItems: 3, items: { $ref: '#/BallotEntry' } }
+        culture: { type: array, maxItems: 3, items: { $ref: '#/BallotEntry' } }
+        sports: { type: array, maxItems: 3, items: { $ref: '#/BallotEntry' } }
+    myVotes:
+      type: object
+      additionalProperties: false
+      description: Yalnızca öğrencilere; kategori başına oy verilen giriş kimliği.
+      properties:
+        science: { type: [string, 'null'] }
+        culture: { type: [string, 'null'] }
+        sports: { type: [string, 'null'] }
+BallotSelection:
+  type: object
+  additionalProperties: false
+  required: [science, culture, sports]
+  description: Yönetici, onaylı havuzdan her kategori için tam üç etkinlik seçer.
+  properties:
+    science:
+      { type: array, minItems: 3, maxItems: 3, uniqueItems: true, items: { $ref: '#/PublicId' } }
+    culture:
+      { type: array, minItems: 3, maxItems: 3, uniqueItems: true, items: { $ref: '#/PublicId' } }
+    sports:
+      { type: array, minItems: 3, maxItems: 3, uniqueItems: true, items: { $ref: '#/PublicId' } }
+VoteCreate:
+  type: object
+  additionalProperties: false
+  required: [ballotEntryId]
+  properties:
+    ballotEntryId: { type: string, minLength: 1, maxLength: 64 }
+Vote:
+  type: object
+  additionalProperties: false
+  required: [date, category, ballotEntryId, createdAt]
+  properties:
+    date: { type: string, format: date }
+    category: { $ref: '#/Category' }
+    ballotEntryId: { type: string }
+    createdAt: { $ref: '#/Timestamp' }
+VotingResult:
+  type: object
+  additionalProperties: false
+  required: [id, date, category, status, totalVotes, entries]
+  properties:
+    id: { $ref: '#/PublicId' }
+    date: { type: string, format: date }
+    category: { $ref: '#/Category' }
+    status:
+      type: string
+      enum: [winner, tie_pending, below_threshold, no_votes]
+      description: '`tie_pending`: eşitlik var, kararı yönetici verecek.'
+    totalVotes: { type: integer, minimum: 0 }
+    winner: { $ref: '#/EventSummary' }
+    entries:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [event, voteCount]
+        properties:
+          event: { $ref: '#/EventSummary' }
+          voteCount: { type: integer, minimum: 0 }
+VotingResultList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, maxItems: 3, items: { $ref: '#/VotingResult' } }
+TieDecision:
+  type: object
+  additionalProperties: false
+  required: [eventId]
+  properties:
+    eventId: { $ref: '#/PublicId', description: Eşit oy alan etkinliklerden biri. }
+
+# --- Applications -------------------------------------------------------------
+
+Application:
+  type: object
+  additionalProperties: false
+  required: [id, eventId, status, appliedAt]
+  properties:
+    id: { $ref: '#/PublicId' }
+    eventId: { $ref: '#/PublicId' }
+    status: { type: string, enum: [confirmed, waitlisted, cancelled] }
+    waitlistPosition: { type: integer, minimum: 1 }
+    appliedAt: { $ref: '#/Timestamp' }
+    confirmedAt: { $ref: '#/Timestamp' }
+    cancelledAt: { $ref: '#/Timestamp' }
+ApplicationWithStudent:
+  allOf:
+    - $ref: '#/Application'
+    - type: object
+      required: [student]
+      properties:
+        student: { $ref: '#/UserSummary' }
+ApplicationPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/ApplicationWithStudent' } }
+    page: { $ref: '#/PageInfo' }
+MyApplicationPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items:
+        allOf:
+          - $ref: '#/Application'
+          - type: object
+            required: [event]
+            properties:
+              event: { $ref: '#/EventSummary' }
+    page: { $ref: '#/PageInfo' }
+
+# --- Attendance ---------------------------------------------------------------
+
+QrToken:
+  type: object
+  additionalProperties: false
+  required: [url, expiresAt, refreshAfterSeconds]
+  description: Ekranda gösterilecek QR'ın içeriği. Sunucu imzalı, kısa ömürlü ve bu etkinliğe bağlıdır.
+  properties:
+    url:
+      type: string
+      format: uri
+      description: "PWA'nın katılım sayfası; belirteç URL parçasında (`#`) taşınır, böylece sunucu ve Caddy loglarına düşmez."
+    expiresAt: { $ref: '#/Timestamp' }
+    refreshAfterSeconds: { type: integer, minimum: 20, maximum: 30 }
+    kind: { type: string, enum: [entry, exit, spot_check] }
+AttendanceScanCreate:
+  type: object
+  additionalProperties: false
+  required: [token, latitude, longitude, accuracyM]
+  description: Koordinatlar yalnızca doğrulama için kullanılır ve saklanmaz (KVKK).
+  properties:
+    token: { type: string, minLength: 16, maxLength: 1024 }
+    latitude: { type: number, minimum: -90, maximum: 90 }
+    longitude: { type: number, minimum: -180, maximum: 180 }
+    accuracyM: { type: number, minimum: 0, maximum: 100000 }
+AttendanceScanResult:
+  type: object
+  additionalProperties: false
+  required: [accepted, kind, scannedAt]
+  properties:
+    accepted: { type: boolean }
+    kind: { type: string, enum: [entry, exit, spot_check] }
+    scannedAt: { $ref: '#/Timestamp' }
+    distanceM: { type: number, minimum: 0 }
+    rejectionReason:
+      type: string
+      enum:
+        [token_expired, token_wrong_event, outside_radius, location_unavailable, outside_event_time]
+    presenceSoFarSeconds: { type: integer, minimum: 0 }
+    requiredPresenceSeconds: { type: integer, minimum: 0 }
+Attendance:
+  type: object
+  additionalProperties: false
+  required: [student, status, presentSeconds]
+  properties:
+    student: { $ref: '#/UserSummary' }
+    status: { type: string, enum: [attended, absent, excused, blocked_by_capacity, in_progress] }
+    firstValidScanAt: { $ref: '#/Timestamp' }
+    lastValidScanAt: { $ref: '#/Timestamp' }
+    presentSeconds: { type: integer, minimum: 0 }
+AttendancePage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/Attendance' } }
+    page: { $ref: '#/PageInfo' }
+ExcuseCreate:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 2000 }
+Excuse:
+  type: object
+  additionalProperties: false
+  required: [id, eventId, student, reason, status, createdAt]
+  properties:
+    id: { $ref: '#/PublicId' }
+    eventId: { $ref: '#/PublicId' }
+    student: { $ref: '#/UserSummary' }
+    reason: { $ref: '#/PlainText' }
+    status: { type: string, enum: [pending, approved, rejected] }
+    reviewedAt: { $ref: '#/Timestamp' }
+    createdAt: { $ref: '#/Timestamp' }
+ExcusePage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/Excuse' } }
+    page: { $ref: '#/PageInfo' }
+ExcuseReview:
+  type: object
+  additionalProperties: false
+  required: [decision]
+  properties:
+    decision: { type: string, enum: [approve, reject] }
+
+# --- Scoring and leaderboard -------------------------------------------------
+
+ScoreRuleCode:
+  type: string
+  enum:
+    - voted_winner_attended
+    - voted_winner_absent
+    - no_vote_attended
+    - voted_other_attended
+    - voted_other_absent
+    - no_vote_absent
+ScoreRule:
+  type: object
+  additionalProperties: false
+  required: [code, points, validFrom]
+  properties:
+    code: { $ref: '#/ScoreRuleCode' }
+    points: { type: integer, minimum: -1000, maximum: 1000 }
+    validFrom: { $ref: '#/Timestamp' }
+ScoreRuleList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, maxItems: 6, items: { $ref: '#/ScoreRule' } }
+ScoreRuleUpdate:
+  type: object
+  additionalProperties: false
+  required: [points]
+  properties:
+    points: { type: integer, minimum: -1000, maximum: 1000 }
+ScoreSummary:
+  type: object
+  additionalProperties: false
+  required: [season, points, attendedCount, votedCount]
+  properties:
+    season: { type: string, example: 2026-2027 }
+    points:
+      {
+        type: integer,
+        description: 'Sezonun başlangıç puanı (1500) + defterdeki hareketlerin toplamı.',
+      }
+    rank: { type: [integer, 'null'], minimum: 1 }
+    attendedCount: { type: integer, minimum: 0 }
+    votedCount: { type: integer, minimum: 0 }
+    attendanceRateAfterVoting: { type: [number, 'null'], minimum: 0, maximum: 1 }
+ScoreEntry:
+  type: object
+  additionalProperties: false
+  required: [event, ruleCode, points, createdAt]
+  properties:
+    event: { $ref: '#/EventSummary' }
+    ruleCode:
+      type: string
+      enum:
+        - voted_winner_attended
+        - voted_winner_absent
+        - no_vote_attended
+        - voted_other_attended
+        - voted_other_absent
+        - no_vote_absent
+        - excuse_reversal
+    points: { type: integer }
+    createdAt: { $ref: '#/Timestamp' }
+ScoreEntryPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/ScoreEntry' } }
+    page: { $ref: '#/PageInfo' }
+Season:
+  type: object
+  additionalProperties: false
+  required: [name, startsOn, endsOn, status]
+  properties:
+    name: { type: string, pattern: '^[0-9]{4}-[0-9]{4}$' }
+    startsOn: { type: string, format: date }
+    endsOn: { type: string, format: date }
+    status: { type: string, enum: [active, closed] }
+SeasonList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, items: { $ref: '#/Season' } }
+Leaderboard:
+  type: object
+  additionalProperties: false
+  required: [season, entries]
+  properties:
+    season: { $ref: '#/Season' }
+    entries:
+      type: array
+      maxItems: 10
+      items:
+        type: object
+        additionalProperties: false
+        required: [rank, student, points, attendedCount]
+        properties:
+          rank: { type: integer, minimum: 1, maximum: 10 }
+          student: { $ref: '#/UserSummary' }
+          points: { type: integer }
+          attendedCount: { type: integer, minimum: 0 }
+    me:
+      $ref: '#/ScoreSummary'
+      description: Öğrencinin kendi sırası (ilk 10'da olmasa da).
+
+# --- Feedback -----------------------------------------------------------------
+
+ReasonPrompt:
+  type: object
+  additionalProperties: false
+  required: [id, event, kind, question, sentAt]
+  properties:
+    id: { $ref: '#/PublicId' }
+    event: { $ref: '#/EventSummary' }
+    kind: { type: string, enum: [why_attended, why_not_attended] }
+    question:
+      type: string
+      examples: [Bu etkinliğe neden katıldınız?, Oy verdiğiniz bu etkinliğe neden katılmadınız?]
+    sentAt: { $ref: '#/Timestamp' }
+    answeredAt: { $ref: '#/Timestamp' }
+ReasonPromptList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, items: { $ref: '#/ReasonPrompt' } }
+ReasonAnswer:
+  type: object
+  additionalProperties: false
+  required: [answer]
+  properties:
+    answer: { type: string, minLength: 1, maxLength: 2000 }
+RatingCreate:
+  type: object
+  additionalProperties: false
+  required: [score]
+  properties:
+    score: { type: integer, minimum: 1, maximum: 5 }
+    comment: { type: string, minLength: 1, maxLength: 2000 }
+Rating:
+  type: object
+  additionalProperties: false
+  required: [score, createdAt]
+  properties:
+    score: { type: integer, minimum: 1, maximum: 5 }
+    comment: { $ref: '#/PlainText' }
+    createdAt: { $ref: '#/Timestamp' }
+RatingReport:
+  type: object
+  additionalProperties: false
+  required: [averageRating, ratingCount, items, page]
+  description: Ortalama puan ve yorumlar; yalnızca ilgili danışman ve yönetici görür. Yorumlar anonimdir.
+  properties:
+    averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 }
+    ratingCount: { type: integer, minimum: 0 }
+    items: { type: array, items: { $ref: '#/Rating' } }
+    page: { $ref: '#/PageInfo' }
+
+# --- Notifications ------------------------------------------------------------
+
+Notification:
+  type: object
+  additionalProperties: false
+  required: [id, type, title, body, createdAt]
+  properties:
+    id: { $ref: '#/PublicId' }
+    type: { $ref: '#/NotificationType' }
+    title: { $ref: '#/PlainText' }
+    body: { $ref: '#/PlainText' }
+    link: { type: string, format: uri-reference, description: Uygulama içi göreli bağlantı. }
+    readAt: { $ref: '#/Timestamp' }
+    createdAt: { $ref: '#/Timestamp' }
+NotificationPage:
+  type: object
+  additionalProperties: false
+  required: [items, unreadCount, page]
+  properties:
+    items: { type: array, items: { $ref: '#/Notification' } }
+    unreadCount: { type: integer, minimum: 0 }
+    page: { $ref: '#/PageInfo' }
+NotificationUpdate:
+  type: object
+  additionalProperties: false
+  required: [read]
+  properties:
+    read: { type: boolean, const: true }
+
+# --- Administration -----------------------------------------------------------
+
+Settings:
+  type: object
+  additionalProperties: false
+  description: Yöneticinin değiştirebildiği ayarlar; her değişiklik denetim kaydına yazılır. 0, boş ve negatif değerler reddedilir.
+  required:
+    [minimumVotesToWin, defaultAttendanceRadiusM, defaultQrRefreshSeconds, showLiveVoteCounts]
+  properties:
+    minimumVotesToWin: { type: integer, minimum: 1, maximum: 100000 }
+    defaultAttendanceRadiusM: { type: integer, minimum: 1, maximum: 5000 }
+    defaultQrRefreshSeconds: { type: integer, minimum: 20, maximum: 30 }
+    showLiveVoteCounts: { type: boolean }
+SettingsUpdate:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    minimumVotesToWin: { type: integer, minimum: 1, maximum: 100000 }
+    defaultAttendanceRadiusM: { type: integer, minimum: 1, maximum: 5000 }
+    defaultQrRefreshSeconds: { type: integer, minimum: 20, maximum: 30 }
+    showLiveVoteCounts: { type: boolean }
+AuditEntry:
+  type: object
+  additionalProperties: false
+  required: [action, entityType, createdAt, details]
+  properties:
+    actor: { $ref: '#/UserSummary' }
+    action: { type: string }
+    entityType: { type: string }
+    entityId: { type: string }
+    details: { type: object }
+    requestId: { type: string }
+    createdAt: { $ref: '#/Timestamp' }
+AuditPage:
+  type: object
+  additionalProperties: false
+  required: [items, page]
+  properties:
+    items: { type: array, items: { $ref: '#/AuditEntry' } }
+    page: { $ref: '#/PageInfo' }
+TagList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items: { type: array, items: { $ref: '#/Tag' } }
+
+# --- Analytics ----------------------------------------------------------------
+
+CategoryCount:
+  type: object
+  additionalProperties: false
+  required: [category, votes, attendees]
+  properties:
+    category: { $ref: '#/Category' }
+    votes: { type: integer, minimum: 0 }
+    attendees: { type: integer, minimum: 0 }
+AnalyticsOverview:
+  type: object
+  additionalProperties: false
+  description: >-
+    Yönetici tüm etkinlikleri, danışman yalnızca yetkili olduğu etkinlikleri görür.
+    Grafiklerin yanında aynı veriler tablo olarak da sunulur.
+  required:
+    [
+      season,
+      registeredStudents,
+      completedEvents,
+      voterAttendanceRate,
+      averageRating,
+      byCategory,
+      nonAttendanceReasons,
+      communities,
+      attendanceByHour,
+    ]
+  properties:
+    season: { type: string }
+    registeredStudents: { type: integer, minimum: 0 }
+    completedEvents: { type: integer, minimum: 0 }
+    voterAttendanceRate:
+      {
+        type: [number, 'null'],
+        minimum: 0,
+        maximum: 1,
+        description: Kazanan etkinliğe oy verip katılanların oranı.,
+      }
+    averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 }
+    byCategory: { type: array, maxItems: 3, items: { $ref: '#/CategoryCount' } }
+    nonAttendanceReasons:
+      type: array
+      description: Katılmama nedenleri dağılımı. Yapay zekâ sınıflandırması gelene kadarki üretim yöntemi Aşama 11'de kararlaştırılacak.
+      items:
+        type: object
+        additionalProperties: false
+        required: [label, count]
+        properties:
+          label: { type: string }
+          count: { type: integer, minimum: 0 }
+    communities:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [community, completedEvents, wins, averageRating]
+        properties:
+          community: { $ref: '#/CommunitySummary' }
+          completedEvents: { type: integer, minimum: 0 }
+          wins: { type: integer, minimum: 0 }
+          averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 }
+    attendanceByHour:
+      type: array
+      maxItems: 24
+      items:
+        type: object
+        additionalProperties: false
+        required: [hour, attendees]
+        properties:
+          hour: { type: integer, minimum: 0, maximum: 23, description: Europe/Istanbul saati. }
+          attendees: { type: integer, minimum: 0 }

@@ -1,0 +1,29 @@
+RequestId:
+  description: Sunucunun ürettiği UUIDv7 istek kimliği; loglarda ve kuyruk işlerinde taşınır.
+  schema: { type: string, format: uuid }
+NoStore:
+  schema: { type: string, const: no-store }
+ETag:
+  description: Kaynağın sürüm etiketi; `If-None-Match` ile yeniden doğrulanır.
+  schema: { type: string }
+Location:
+  description: Oluşturulan kaynağın adresi.
+  schema: { type: string, format: uri-reference }
+RetryAfter:
+  description: Yeniden denemeden önce beklenecek saniye.
+  schema: { type: integer, minimum: 1 }
+RateLimitLimit:
+  description: Pencere başına izin verilen istek sayısı.
+  schema: { type: integer, minimum: 1 }
+RateLimitRemaining:
+  description: Pencerede kalan istek sayısı.
+  schema: { type: integer, minimum: 0 }
+RateLimitReset:
+  description: Pencerenin sıfırlanmasına kalan saniye.
+  schema: { type: integer, minimum: 0 }
+ClearSiteData:
+  description: Çıkışta tarayıcıdaki çerez, depolama ve önbelleği temizler.
+  schema: { type: string, const: '"cache", "cookies", "storage"' }
+SetSessionCookie:
+  description: '`__Host-session` çerezi: `Secure; HttpOnly; SameSite=Lax; Path=/`.'
+  schema: { type: string }
