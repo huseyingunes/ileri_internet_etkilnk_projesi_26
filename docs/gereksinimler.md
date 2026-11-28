@@ -73,13 +73,21 @@ Her öğrenci 1500 puanla başlar. Puanlar aşağıdaki sabit tabloyla değişir
 - Gerçek Elo algoritması kullanılmaz; parametrik sabit puanlama yeterlidir.
 - Giriş yalnızca üniversitenin kurumsal hesabıyla yapılır.
 
+### Veri modeli kararları (Aşama 1, 2026-11-28)
+
+- **Akademik yıl (sezon)** her yıl 1 Eylül'de başlar ve bir sonraki yılın 31 Ağustos'unda biter. Sezonu sistem otomatik açar; kapanış bir worker işidir.
+- **Roller tektir:** her kullanıcının yalnızca bir rolü vardır (öğrenci, danışman ya da yönetici). Öğrenci aynı zamanda danışman olamaz.
+- **Etkinliği öneren** ya bir kişi ya da bir topluluktur; ikisi birden olamaz.
+- **Etkinlikler birden fazla güne yayılabilir.** Başlangıç ve bitiş tam zaman damgası olarak tutulur. Çok günlü etkinlikte "sürenin %50'si" kuralının nasıl uygulanacağı Aşama 7'den önce netleştirilecektir.
+
 ### Açık sorular ve kararlar
 
-| Soru                                                                                            | Aşama | Durum                                                                                                                                                                   |
-| ----------------------------------------------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Üretim alan adı nedir?                                                                          | 0     | **Karar verildi:** yerelde `https://etkinlik.localhost`, üretimde doğrudan `https://haber10da.net` (alt alan adı yok). Bkz. [ADR 0007](adr/0007-alan-adi-ve-origin.md). |
-| Üniversitenin kimlik sağlayıcısı hangisi ve OIDC istemci bilgileri hazır mı?                    | 3     | Açık                                                                                                                                                                    |
-| Oylama sürerken oy sayıları öğrencilere gösterilecek mi?                                        | 5     | Açık                                                                                                                                                                    |
-| Asgari oy eşiği, konum yarıçapı ve QR yenileme süresinin varsayılanları ne olacak?              | 5, 7  | Açık                                                                                                                                                                    |
-| WhatsApp Business hesabı ve onaylı şablonlar hazır mı? E-posta hangi sağlayıcıyla gönderilecek? | 10    | Açık                                                                                                                                                                    |
-| Yapay zekâ sınıflandırması gelene kadar katılmama nedenleri dağılımı nasıl üretilecek?          | 11    | Açık                                                                                                                                                                    |
+| Soru                                                                                                                     | Aşama | Durum                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Üretim alan adı nedir?                                                                                                   | 0     | **Karar verildi:** yerelde `https://etkinlik.localhost`, üretimde doğrudan `https://haber10da.net` (alt alan adı yok). Bkz. [ADR 0007](adr/0007-alan-adi-ve-origin.md). |
+| Üniversitenin kimlik sağlayıcısı hangisi ve OIDC istemci bilgileri hazır mı?                                             | 3     | Açık                                                                                                                                                                    |
+| Oylama sürerken oy sayıları öğrencilere gösterilecek mi?                                                                 | 5     | Açık                                                                                                                                                                    |
+| Asgari oy eşiği, konum yarıçapı ve QR yenileme süresinin varsayılanları ne olacak?                                       | 5, 7  | Açık                                                                                                                                                                    |
+| Birden fazla güne yayılan etkinlikte "sürenin en az %50'si" kuralı nasıl hesaplanacak (toplam süre mi, her gün ayrı mı)? | 7     | Açık                                                                                                                                                                    |
+| WhatsApp Business hesabı ve onaylı şablonlar hazır mı? E-posta hangi sağlayıcıyla gönderilecek?                          | 10    | Açık                                                                                                                                                                    |
+| Yapay zekâ sınıflandırması gelene kadar katılmama nedenleri dağılımı nasıl üretilecek?                                   | 11    | Açık                                                                                                                                                                    |

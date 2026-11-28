@@ -30,6 +30,7 @@ npm run lint && npm run format:check && npm run typecheck
 npm test                            # birim (Vitest)
 npm run test:integration            # Testcontainers: PostgreSQL 18 + Redis 8
 npm run test:e2e                    # Playwright + axe-core
+docker compose --profile tools run --rm migrate   # göç (önce yedek: docs/isletim-kilavuzu.md)
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build
 ```
 
@@ -59,6 +60,7 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
 ## Veritabanı
 
 - Sıra: önce veri modeli, sonra OpenAPI sözleşmesi, sonra modüller.
+- **Göçler elle yazılan SQL'dir** (`apps/api/prisma/migrations/*/migration.sql` + `down.sql`); `schema.prisma` `prisma db pull` ile üretilir, elle düzenlenmez ([ADR 0009](docs/adr/0009-sql-gocleri.md)). Tablolar `text + CHECK`, kısmi indeks ve trigger kullanır; Prisma şeması bunları göstermez.
 - `timestamptz`; `text` + `CHECK`; birincil anahtar `bigint identity`; dışa açık kimlikler UUIDv7.
 - Gerekli sütunlar `NOT NULL`; her yabancı anahtar sütununa indeks.
 - Tekillik: oy (öğrenci, gün, kategori); başvuru (öğrenci, etkinlik); puan hareketi

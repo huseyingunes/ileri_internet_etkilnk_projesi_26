@@ -62,6 +62,39 @@ docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.
 # Ardından caddy-root.crt dosyasını işletim sisteminin güvenilen kök sertifikalarına ekleyin.
 ```
 
+## Göçler
+
+Şema değişiklikleri `apps/api/prisma/migrations/<zaman>_<ad>/migration.sql` dosyalarındaki SQL ile yapılır.
+Her göçün yanında bir `down.sql` geri alma betiği bulunur ([ADR 0009](adr/0009-sql-gocleri.md)).
+API açılışta göç uygulamaz. Adımlar:
+
+1. **Yedek al:**
+
+   ```sh
+   docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > yedek-$(date +%Y%m%d-%H%M).dump
+   ```
+
+2. **Göçü uygula:**
+
+   ```sh
+   docker compose --profile tools run --rm migrate
+   ```
+
+3. **Doğrula:** `GET /api/v1/health/ready` 200 dönmeli. Göçün PR'ında yazılı veri doğrulama sorgularını çalıştırın.
+4. **Geri alma gerekirse:** önce uygulamayı durdurun (`docker compose stop api worker`), sonra:
+
+   ```sh
+   docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < apps/api/prisma/migrations/<göç>/down.sql
+   ```
+
+   Veri kaybı olduysa yedekten geri yükleyin: `pg_restore --clean --if-exists`.
+
+Kurallar:
+
+- Göçler geriye uyumlu yazılır: önce ekle, sonra kaldır.
+- Canlı tabloda indeks `CREATE INDEX CONCURRENTLY` ile oluşturulur; bu komut transaction içinde çalışmadığı için ayrı bir göç dosyasına konur.
+- `schema.prisma` elle düzenlenmez; göç uygulandıktan sonra `npx prisma db pull` ile üretilir. Entegrasyon testi şema ile veritabanı arasında sapma olmadığını doğrular.
+
 ## Sağlık uç noktaları
 
 | Uç nokta                           | Anlamı                                           |
