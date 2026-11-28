@@ -18,6 +18,8 @@ import { IdentityModule } from './modules/identity/identity.module.js';
 import { MediaModule } from './modules/media/media.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
 import { SecurityReportsModule } from './modules/security-reports/security-reports.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
+import { VotingModule } from './modules/voting/voting.module.js';
 
 @Module({})
 export class AppModule {
@@ -38,6 +40,8 @@ export class AppModule {
         SecurityReportsModule,
         MediaModule,
         EventsModule,
+        SettingsModule,
+        VotingModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.

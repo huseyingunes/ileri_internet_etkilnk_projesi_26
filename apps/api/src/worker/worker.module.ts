@@ -7,7 +7,11 @@ import { DatabaseModule } from '../infra/database.js';
 import { JobRegistryModule, QueueModule } from '../infra/queue.js';
 import { RedisModule } from '../infra/redis.js';
 import { StorageModule } from '../infra/storage.js';
+import { IdentityModule } from '../modules/identity/identity.module.js';
 import { MediaProcessor } from '../modules/media/media.processor.js';
+import { SettingsModule } from '../modules/settings/settings.module.js';
+import { VotingCloser } from '../modules/voting/voting.closer.js';
+import { VotingModule } from '../modules/voting/voting.module.js';
 import { HealthModule } from '../modules/health/health.module.js';
 import { JobRunnerService } from './job-runner.service.js';
 import { WorkerHealthServer } from './worker-health.server.js';
@@ -26,8 +30,11 @@ export class WorkerModule {
         QueueModule,
         JobRegistryModule,
         HealthModule,
+        IdentityModule,
+        SettingsModule,
+        VotingModule,
       ],
-      providers: [JobRunnerService, WorkerHealthServer, MediaProcessor],
+      providers: [JobRunnerService, WorkerHealthServer, MediaProcessor, VotingCloser],
     };
   }
 }

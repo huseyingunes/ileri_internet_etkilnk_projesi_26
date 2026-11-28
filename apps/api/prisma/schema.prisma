@@ -551,6 +551,8 @@ model voting_results {
   total_votes            Int
   tie_decided_by_user_id BigInt?
   decided_at             DateTime       @default(now()) @db.Timestamptz(6)
+  public_id              String         @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  tied_ballot_ids        BigInt[]       @default([])
   users                  users?         @relation(fields: [tie_decided_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   daily_ballots          daily_ballots? @relation(fields: [winning_ballot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

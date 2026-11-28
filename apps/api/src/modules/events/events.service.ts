@@ -264,6 +264,46 @@ export class EventsService {
     return view;
   }
 
+  /** Summaries for event ids owned by other modules (one query each for events and relations). */
+  async summaries(
+    ids: readonly bigint[],
+    caller: AuthContext,
+  ): Promise<Map<bigint, EventSummaryView>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db.events.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      include: eventInclude,
+    });
+    const views = await this.toViews(rows, caller);
+    return new Map(
+      rows.map((row, index) => {
+        const view = views[index];
+        if (view === undefined) throw new Error('view missing');
+        const {
+          description: _d,
+          participationRequirements: _p,
+          advisor: _a,
+          attendanceRadiusM: _r,
+          qrRefreshSeconds: _q,
+          rejectionReason: _rr,
+          cancellationReason: _c,
+          createdAt: _ca,
+          viewer: _v,
+          ...summary
+        } = view;
+        return [row.id, summary];
+      }),
+    );
+  }
+
+  /** Voting winner goes on the calendar on its own planned date (only from the pool). */
+  async scheduleWinner(eventId: bigint, tx: Prisma.TransactionClient = this.db): Promise<void> {
+    await tx.events.updateMany({
+      where: { id: eventId, status: 'pool' },
+      data: { status: 'scheduled' },
+    });
+  }
+
   /** For other modules (voting, applications, attendance): internal facts of an event. */
   async findInternal(publicId: string) {
     return await this.db.events.findUnique({ where: { public_id: publicId } });
