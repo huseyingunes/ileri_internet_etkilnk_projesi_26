@@ -19,6 +19,7 @@ import {
   setConsent,
   updatePhone,
 } from '../api/notifications';
+import { MyDataCard } from '../components/MyDataCard';
 import { Badge, Button, Card, PageTitle, StatusMessage, TextField } from '../ui';
 
 type Message = { tone: 'neutral' | 'error'; text: string } | undefined;
@@ -311,6 +312,7 @@ export function ProfilePage({ role }: { role: Role }) {
         <PhoneCard />
         <PreferencesCard />
         {role === 'student' && <InterestsCard />}
+        <MyDataCard />
       </div>
     </>
   );

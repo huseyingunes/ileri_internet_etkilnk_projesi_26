@@ -89,3 +89,19 @@ export const saveInterests = (selected: string[]) =>
   api(interestsSchema, '/me/interests', { method: 'PUT', body: { selected } });
 
 export type { NotificationType, OutboundChannel };
+
+const dataRequestSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['export', 'delete']),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  requestedAt: z.string(),
+  completedAt: z.string().optional(),
+  downloadUrl: z.string().optional(),
+});
+export type DataRequest = z.infer<typeof dataRequestSchema>;
+
+export const listDataRequests = () =>
+  api(z.object({ items: z.array(dataRequestSchema) }), '/me/data-requests');
+
+export const createDataRequest = (kind: 'export' | 'delete') =>
+  api(dataRequestSchema, '/me/data-requests', { method: 'POST', body: { kind } });

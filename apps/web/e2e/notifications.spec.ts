@@ -110,6 +110,25 @@ test('profile manages consents, channel preferences and interests', async ({ pag
     await r.fulfill(json({ selected: ['robotik'], inferred: ['astronomi'] }));
   });
 
+  let dataRequest: unknown;
+  await page.route('**/api/v1/me/data-requests', async (r) => {
+    if (r.request().method() === 'POST') {
+      dataRequest = r.request().postDataJSON();
+      await r.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '01938a5d-ac96-7a4b-bcce-b302099a8080',
+          kind: 'delete',
+          status: 'pending',
+          requestedAt: '2027-03-10T12:00:00Z',
+        }),
+      });
+      return;
+    }
+    await r.fulfill(json({ items: [] }));
+  });
+
   await page.goto('/profil');
   await expect(page.getByRole('heading', { name: 'Profil ve bildirimler' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Konum/ })).toBeChecked();
@@ -129,4 +148,17 @@ test('profile manages consents, channel preferences and interests', async ({ pag
   await page.getByRole('button', { name: 'İlgi alanlarını kaydet' }).click();
   await expect(page.getByText('İlgi alanlarınız kaydedildi.')).toBeVisible();
   expect(interests).toEqual({ selected: ['robotik', 'satranç'] });
+
+  // Deleting data needs an explicit typed confirmation in a modal dialog.
+  await page.getByRole('button', { name: 'Verilerimi sil' }).click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Verilerinizi silmek istediğinize emin misiniz?',
+  });
+  await expect(dialog).toBeVisible();
+  const confirm = dialog.getByRole('button', { name: 'Kalıcı olarak sil' });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel('Onaylamak için SİL yazın').fill('sil');
+  await confirm.click();
+  await expect(page.getByText('Silme talebiniz alındı.', { exact: false })).toBeVisible();
+  expect(dataRequest).toEqual({ kind: 'delete' });
 });

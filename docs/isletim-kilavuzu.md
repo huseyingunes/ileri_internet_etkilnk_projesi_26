@@ -136,6 +136,52 @@ Kurallar:
 - Canlı tabloda indeks `CREATE INDEX CONCURRENTLY` ile oluşturulur; bu komut transaction içinde çalışmadığı için ayrı bir göç dosyasına konur.
 - `schema.prisma` elle düzenlenmez; göç uygulandıktan sonra `npx prisma db pull` ile üretilir. Entegrasyon testi şema ile veritabanı arasında sapma olmadığını doğrular.
 
+## Yedekleme ve geri yükleme
+
+Yedeklenmesi gerekenler: PostgreSQL'deki uygulama ve Keycloak veritabanları ile Garage birimleri
+(görseller ve veri dökümleri). Redis yedeklenmez; oturumlar ve kuyruk kendiliğinden yeniden oluşur.
+Ayrıntılar: [ADR 0019](adr/0019-sertlestirme-ve-kvkk.md).
+
+- **Yedek almak:** `tools/ops/backup.sh /yedek/diski`. Betik zaman damgalı bir klasör oluşturur.
+  Dökümleri `pg_restore --list` ile denetler ve `SHA256SUMS` dosyası yazar. Garage birkaç saniye
+  durur.
+  - Günlük çalıştırın, örneğin cron ile 03.30'da. En az 7 günlük ve 4 haftalık kopya saklayın.
+    Kopyaları başka bir diske ya da sunucuya taşıyın.
+  - Windows'ta Git Bash ile çalıştırırken önce `MSYS_NO_PATHCONV=1` ayarlayın.
+- **Geri yüklemek:** `tools/ops/restore.sh <klasör> --yes`. Betik önce özetleri doğrular. Ardından
+  API, worker ve Caddy'yi durdurur, veritabanlarını ve birimleri geri yükler, analitik
+  görünümlerini tazeler ve servisleri yeniden başlatır.
+- **Tatbikat (ayda bir):** son dökümü boş bir PostgreSQL konteynerine yükleyin ve kayıt
+  sayılarını kontrol edin:
+
+  ```sh
+  docker run -d --name drill -e POSTGRES_PASSWORD=x postgres:18.7-trixie
+  docker exec -i drill pg_restore --no-owner -U postgres -d postgres < yedek/app.dump
+  docker exec drill psql -U postgres -c "select count(*) from users"
+  docker rm -f drill
+  ```
+
+- **Geri yüklemeden sonra:** `GET /api/v1/health/ready` 200 dönmeli. Kayıt sayılarını kontrol
+  edin: kullanıcılar, etkinlikler ve son puan hareketinin tarihi. Yönetici panelinde göstergeler
+  görünmeli.
+
+## Kişisel veri talepleri (KVKK)
+
+Kullanıcılar profil sayfasından iki talep oluşturabilir:
+
+- **"Verilerimi indir":** worker bir JSON dökümü hazırlar; kullanıcı bu dosyayı oturumu açıkken
+  indirir.
+- **"Verilerimi sil":** hesap anonimleştirilir, kişinin yazdığı metinler silinir.
+
+Talepler `data_requests` tablosunda izlenir. `failed` durumundaki bir talep, worker kuyruğundan
+yeniden denenebilir ya da kullanıcı yeniden talep açabilir. Neyin silinip neyin anonim olarak
+kaldığı [ADR 0019](adr/0019-sertlestirme-ve-kvkk.md)'da yazılıdır.
+
+## Yük testi
+
+Senaryolar ve eşikler [tools/load/README.md](../tools/load/README.md) dosyasındadır. Testler
+yalnızca yerel ya da hazırlık ortamında çalıştırılır. Sonuçları ilgili ADR'ye ekleyin.
+
 ## Sağlık uç noktaları
 
 | Uç nokta                           | Anlamı                                           |
