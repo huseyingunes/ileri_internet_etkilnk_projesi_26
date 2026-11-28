@@ -16,3 +16,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0007](0007-alan-adi-ve-origin.md)      | Alan adı ve origin                    | Kabul edildi |
 | [0008](0008-gelistirme-konteyneri.md)   | Yalıtılmış geliştirme konteyneri      | Kabul edildi |
 | [0009](0009-sql-gocleri.md)             | SQL göçleri ve üretilen Prisma şeması | Kabul edildi |
+| [0010](0010-api-sozlesmesi.md)          | API sözleşmesi kararları              | Kabul edildi |

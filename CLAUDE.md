@@ -77,6 +77,7 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
 ## API
 
 - OpenAPI ([docs/openapi/openapi.yaml](docs/openapi/openapi.yaml)) koddan önce yazılır; yollar `/api/v1`.
+- Sözleşme çok dosyalıdır (`docs/openapi/components/`); her işlem `x-roles` ve `x-phase` taşır. Sayfalama imleç tabanlıdır (`limit` + `cursor` → `page.nextCursor`). QR belirteci URL parçasında (`#`) taşınır ([ADR 0010](docs/adr/0010-api-sozlesmesi.md)).
 - Kaynak adları çoğul; en fazla iki düzey iç içe.
 - Tek hata gövdesi `{ code, message, fieldErrors, requestId }` (`@etkinlik/shared`
   `errorBodySchema`); 401, 403, 422, 429 doğru ayrılır. Hatalar yalnızca
