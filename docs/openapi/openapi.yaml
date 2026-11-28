@@ -1643,7 +1643,7 @@ paths:
       tags: [notifications]
       operationId: verifyWhatsappWebhook
       summary: Meta webhook doğrulama
-      description: '`hub.verify_token` sabit zamanlı karşılaştırmayla doğrulanır.'
+      description: '`hub.verify_token` sabit zamanlı karşılaştırmayla doğrulanır. WhatsApp yapılandırılmamışsa 403.'
       security: []
       x-roles: [public]
       x-phase: 10

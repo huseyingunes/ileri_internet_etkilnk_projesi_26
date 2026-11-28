@@ -23,3 +23,4 @@ kabul edilirse yeni bir kayıtla belgelenir. Kayıtlar silinmez; geçersiz kalan
 | [0014](0014-katilim-dogrulama.md)       | Katılım doğrulama: QR, konum ve süre           | Kabul edildi |
 | [0015](0015-puanlama-kararlari.md)      | Puanlama, sezon ve mazeret kararları           | Kabul edildi |
 | [0016](0016-geri-bildirim-ve-arsiv.md)  | Neden soruları, değerlendirme, arşiv ve galeri | Kabul edildi |
+| [0017](0017-bildirimler.md)             | Bildirimler, kanallar ve ilgi alanları         | Kabul edildi |
