@@ -371,6 +371,20 @@ export class VotingService {
     };
   }
 
+  /** For the archive page: the results of every day the event was on the ballot. */
+  async resultsForEvent(eventId: bigint, caller: AuthContext): Promise<VotingResultView[]> {
+    const ballots = await this.db.daily_ballots.findMany({
+      where: { event_id: eventId },
+      orderBy: { voting_date: 'asc' },
+    });
+    const views: VotingResultView[] = [];
+    for (const ballot of ballots) {
+      const { items } = await this.results(caller, plainDate(ballot.voting_date).toString());
+      views.push(...items.filter((item) => item.category === ballot.category));
+    }
+    return views;
+  }
+
   /** Closes every finished voting day that has no result yet (catch-up safe, idempotent). */
   async closeDueDays(): Promise<number> {
     const today = this.today();

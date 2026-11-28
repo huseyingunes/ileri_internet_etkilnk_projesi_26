@@ -107,6 +107,17 @@ export function uploadImage(file: File, alt: string) {
 
 export const getMedia = (id: string) => api(mediaSchema, `/media/${encodeURIComponent(id)}`);
 
+/** Uploads an image and waits briefly while its variants are derived in the background. */
+export async function uploadImageAndWait(file: File, alt: string) {
+  const media = await uploadImage(file, alt);
+  for (let i = 0; i < 20; i += 1) {
+    const current = await getMedia(media.id);
+    if (current.status !== 'pending') return current;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return media;
+}
+
 export const applyToEvent = (id: string) =>
   api(applicationSchema, `/events/${encodeURIComponent(id)}/applications`, { method: 'POST' });
 

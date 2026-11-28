@@ -497,6 +497,14 @@ EventSummaryReport:
     ratingCount: { type: integer, minimum: 0 }
     voting: { type: array, items: { $ref: '#/VotingResult' } }
     photos: { type: array, items: { $ref: '#/Media' } }
+    viewer:
+      type: object
+      additionalProperties: false
+      description: Öğrencinin bu etkinliği değerlendirip değerlendiremeyeceği.
+      required: [canRate, rated]
+      properties:
+        canRate: { type: boolean }
+        rated: { type: boolean }
 
 # --- Daily selection and voting ----------------------------------------------
 

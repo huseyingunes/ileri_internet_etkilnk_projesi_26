@@ -96,6 +96,9 @@ const eventInclude = {
   event_tags: { select: { tags: { select: { name: true } } } },
 } satisfies Prisma.eventsInclude;
 
+/** Gallery size limit per event. */
+const MAX_PHOTOS = 50;
+
 type EventRow = Prisma.eventsGetPayload<{ include: typeof eventInclude }>;
 
 const toInstantDate = (value: string) => toDbDate(Temporal.Instant.from(value));
@@ -538,5 +541,53 @@ export class EventsService {
       mediaPublicId === null ? null : await this.media.requireAttachable(caller, mediaPublicId);
     await this.db.events.update({ where: { id: row.id }, data: { cover_media_id: mediaId } });
     return await this.get(publicId, caller);
+  }
+
+  // --- Photo gallery (prompt: photos are uploaded by the advisor or an admin) ---
+
+  async listPhotos(publicId: string, caller: AuthContext): Promise<{ items: MediaView[] }> {
+    const row = await this.requireRow(publicId, caller);
+    const photos = await this.db.event_photos.findMany({
+      where: { event_id: row.id },
+      orderBy: [{ sort_order: 'asc' }, { media_id: 'asc' }],
+    });
+    const views = await this.media.views(photos.map((p) => p.media_id));
+    return {
+      items: photos.flatMap((p) => {
+        const view = views.get(p.media_id);
+        return view?.status === 'ready' ? [view] : [];
+      }),
+    };
+  }
+
+  async addPhoto(publicId: string, caller: AuthContext, mediaPublicId: string): Promise<void> {
+    const row = await this.requireRow(publicId, caller);
+    if (!canManagePhotos(facts(row), caller))
+      throw new ForbiddenError('Bu etkinliğe fotoğraf ekleme yetkiniz yok.');
+    if (row.status !== 'scheduled' && row.status !== 'completed') {
+      throw new ConflictError('Fotoğraf yalnızca takvimdeki ya da gerçekleşen etkinliğe eklenir.');
+    }
+    const mediaId = await this.media.requireAttachable(caller, mediaPublicId);
+    await this.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('event-photos', ${row.id}))`;
+      const count = await tx.event_photos.count({ where: { event_id: row.id } });
+      if (count >= MAX_PHOTOS) {
+        throw new ConflictError(`Bir etkinliğe en fazla ${String(MAX_PHOTOS)} fotoğraf eklenir.`);
+      }
+      await tx.event_photos.createMany({
+        data: [{ event_id: row.id, media_id: mediaId, sort_order: count }],
+        skipDuplicates: true,
+      });
+    });
+  }
+
+  async removePhoto(publicId: string, caller: AuthContext, mediaPublicId: string): Promise<void> {
+    const row = await this.requireRow(publicId, caller);
+    if (!canManagePhotos(facts(row), caller))
+      throw new ForbiddenError('Bu etkinliğin fotoğraflarını yönetme yetkiniz yok.');
+    const removed = await this.db.event_photos.deleteMany({
+      where: { event_id: row.id, media_objects: { public_id: mediaPublicId } },
+    });
+    if (removed.count === 0) throw new NotFoundError('Fotoğraf bulunamadı.');
   }
 }

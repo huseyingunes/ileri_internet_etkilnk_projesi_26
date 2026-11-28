@@ -130,4 +130,31 @@ export class EventsController {
   ): Promise<void> {
     await this.events.setCover(eventId, auth, null);
   }
+
+  @Get(':id/photos')
+  async photos(@CurrentUser() auth: AuthContext, @Param('id', idPipe) id: string) {
+    return await this.events.listPhotos(id, auth);
+  }
+
+  @Roles('advisor', 'admin')
+  @Post(':id/photos')
+  @HttpCode(204)
+  async addPhoto(
+    @CurrentUser() auth: AuthContext,
+    @Param('id', idPipe) id: string,
+    @Body(new ZodPipe(mediaRefSchema)) body: z.output<typeof mediaRefSchema>,
+  ): Promise<void> {
+    await this.events.addPhoto(id, auth, body.mediaId);
+  }
+
+  @Roles('advisor', 'admin')
+  @Delete(':id/photos/:mediaId')
+  @HttpCode(204)
+  async removePhoto(
+    @CurrentUser() auth: AuthContext,
+    @Param('id', idPipe) id: string,
+    @Param('mediaId', idPipe) mediaId: string,
+  ): Promise<void> {
+    await this.events.removePhoto(id, auth, mediaId);
+  }
 }

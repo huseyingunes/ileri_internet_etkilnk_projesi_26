@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ScoringService } from '../src/modules/scoring/scoring.service.js';
 import { call, startTestApp, type TestApp } from './support/app.js';
 import type { TestBrowser } from './support/browser.js';
+import * as scenario from './support/scenario.js';
 
 let t: TestApp;
 let admin: TestBrowser & { userId: bigint };
 let advisor: TestBrowser & { userId: bigint };
-let dayOffset = 1;
 
 beforeAll(async () => {
   t = await startTestApp();
@@ -18,104 +18,11 @@ afterAll(async () => {
   await t.stop();
 });
 
-/** A date in the current academic season (days before today, UTC midnight as Prisma expects). */
-function votingDate(): Date {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() - dayOffset);
-  dayOffset += 1;
-  return d;
-}
-
-async function newEvent(status: string): Promise<{ id: bigint; publicId: string }> {
-  const created = await call(t, admin, 'POST', '/events', {
-    title: `Puan ${Math.random().toString(36).slice(2, 7)}`,
-    description: 'x',
-    category: 'science',
-    startsAt: '2030-01-01T10:00:00+03:00',
-    endsAt: '2030-01-01T12:00:00+03:00',
-    location: { name: 'Amfi', latitude: 41, longitude: 29 },
-    capacity: 50,
-    attendanceRadiusM: 100,
-    qrRefreshSeconds: 25,
-  });
-  const publicId = String(created.body['id']);
-  const row = await t.db.prisma.events.update({
-    where: { public_id: publicId },
-    data: {
-      status,
-      starts_at: new Date(Date.now() - 4 * 3_600_000),
-      ends_at: new Date(Date.now() - 2 * 3_600_000),
-      advisor_user_id: advisor.userId,
-    },
-  });
-  return { id: row.id, publicId };
-}
-
-/**
- * A completed event that won its day's science vote against `other`, with the
- * given votes and final attendance.
- */
-async function wonEvent(
+const newEvent = (status: string) => scenario.newEvent(t, admin, advisor, status);
+const wonEvent = (
   votes: { student: bigint; forWinner: boolean }[],
   attendance: { student: bigint; status: string }[],
-) {
-  const date = votingDate();
-  const winner = await newEvent('completed');
-  const other = await newEvent('pool');
-  const [winBallot, otherBallot] = await Promise.all(
-    [winner, other].map((e) =>
-      t.db.prisma.daily_ballots.create({
-        data: {
-          voting_date: date,
-          category: 'science',
-          event_id: e.id,
-          selected_by_user_id: admin.userId,
-        },
-      }),
-    ),
-  );
-  if (winBallot === undefined || otherBallot === undefined) throw new Error('ballots');
-  await t.db.prisma.votes.createMany({
-    data: votes.map((v) => ({
-      student_user_id: v.student,
-      daily_ballot_id: v.forWinner ? winBallot.id : otherBallot.id,
-      voting_date: date,
-      category: 'science',
-    })),
-  });
-  await t.db.prisma.voting_results.create({
-    data: {
-      voting_date: date,
-      category: 'science',
-      status: 'winner',
-      winning_ballot_id: winBallot.id,
-      total_votes: votes.length,
-    },
-  });
-  for (const a of attendance) {
-    await t.db.prisma.applications.create({
-      data: {
-        event_id: winner.id,
-        student_user_id: a.student,
-        status: a.status === 'blocked_by_capacity' ? 'waitlisted' : 'confirmed',
-        confirmed_at: a.status === 'blocked_by_capacity' ? null : new Date(),
-        waitlist_position: a.status === 'blocked_by_capacity' ? 1 : null,
-      },
-    });
-    await t.db.prisma.attendances.create({
-      data: {
-        event_id: winner.id,
-        student_user_id: a.student,
-        status: a.status,
-        present_seconds: a.status === 'attended' ? 7200 : 0,
-        first_valid_scan_at: a.status === 'attended' ? new Date(Date.now() - 4 * 3_600_000) : null,
-        last_valid_scan_at: a.status === 'attended' ? new Date(Date.now() - 2 * 3_600_000) : null,
-      },
-    });
-  }
-  return winner;
-}
+) => scenario.wonEvent(t, admin, advisor, votes, attendance);
 
 const pointsOf = async (s: TestBrowser) => (await call(t, s, 'GET', '/me/score')).body['points'];
 

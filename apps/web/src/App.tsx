@@ -11,6 +11,7 @@ import { MyApplicationsPage } from './pages/MyApplicationsPage';
 import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
 import { AttendancePage } from './pages/AttendancePage';
 import { QrDisplayPage } from './pages/QrDisplayPage';
+import { ReasonPromptsPage } from './pages/ReasonPromptsPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { LeaderboardPage, MyScorePage, ScoreRulesPage } from './pages/ScorePages';
 import { ReviewsPage } from './pages/ReviewsPage';
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
   { href: '/etkinlikler/yeni', label: 'Etkinlik öner', roles: ['student', 'advisor', 'admin'] },
   { href: '/basvurularim', label: 'Başvurularım', roles: ['student'] },
   { href: '/puanim', label: 'Puanım', roles: ['student'] },
+  { href: '/sorularim', label: 'Sorularım', roles: ['student'] },
   { href: '/liderlik', label: 'Liderlik', roles: ['student', 'advisor', 'admin'] },
   { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
   { href: '/gunluk-secim', label: 'Günlük seçim', roles: ['admin'] },
@@ -113,6 +115,7 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
+  if (pathname === '/sorularim' && role === 'student') return <ReasonPromptsPage />;
   if (pathname === '/puanim' && role === 'student') return <MyScorePage />;
   if (pathname === '/liderlik') return <LeaderboardPage />;
   if (pathname === '/puan-tablosu') return <ScoreRulesPage role={role} />;
