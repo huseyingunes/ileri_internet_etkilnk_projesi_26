@@ -1,9 +1,10 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   API_DIR,
   type MigratedDatabase,
+  MIGRATIONS_DIR,
   prismaCli,
   runSqlFile,
   sqlState,
@@ -425,8 +426,26 @@ describe('properties', () => {
 describe('rollback', () => {
   it('down.sql removes everything and the migration can be re-applied', async () => {
     await db.prisma.$disconnect();
-    await runSqlFile(db.container, '/migrations/20261128010000_audit_log_public_id/down.sql');
-    await runSqlFile(db.container, '/migrations/20261128000000_initial_schema/down.sql');
+    // Every migration ships a down.sql; roll them all back, newest first.
+    const migrations = (await readdir(MIGRATIONS_DIR, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .reverse();
+    expect(migrations.length).toBeGreaterThan(1);
+    for (const name of migrations) {
+      await runSqlFile(db.container, `/migrations/${name}/down.sql`);
+    }
+    const leftover = await db.container.exec([
+      'psql',
+      '-U',
+      db.container.getUsername(),
+      '-d',
+      db.container.getDatabase(),
+      '-tAc',
+      'SELECT count(*) FROM _prisma_migrations',
+    ]);
+    expect(leftover.output.trim()).toBe('0');
     const remaining = await db.container.exec([
       'psql',
       '-U',

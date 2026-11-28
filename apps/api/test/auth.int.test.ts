@@ -99,6 +99,7 @@ beforeAll(async () => {
     OIDC_CLIENT_SECRET: clientSecret,
     OIDC_ALLOW_INSECURE_HTTP: 'true',
     INITIAL_ADMIN_EMAIL,
+    STORAGE_DRIVER: 'memory',
   });
   const started = await createApp(env);
   app = started;

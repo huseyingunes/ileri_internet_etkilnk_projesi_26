@@ -29,6 +29,7 @@ beforeAll(async () => {
     OIDC_CLIENT_ID: 'etkinlik-web',
     OIDC_CLIENT_SECRET: 'health-test-secret-0123456789',
     INITIAL_ADMIN_EMAIL: 'admin@uni.example',
+    STORAGE_DRIVER: 'memory',
   });
   const started = await createApp(env);
   app = started;
