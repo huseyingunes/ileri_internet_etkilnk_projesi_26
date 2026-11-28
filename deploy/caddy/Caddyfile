@@ -6,26 +6,40 @@
 	}
 }
 
-# Single origin: static PWA + /api reverse proxy. CORS is never enabled.
-# SITE_ADDRESS is the host of APP_ORIGIN (etkinlik.localhost locally, haber10da.net in production).
+# Single origin: static PWA + /api reverse proxy + /idp identity provider.
+# CORS is never enabled. SITE_ADDRESS is the host of APP_ORIGIN
+# (etkinlik.localhost locally, haber10da.net in production).
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
+	# Headers for every response, including the identity provider.
 	header {
-		# HSTS starts short and is raised once the deployment is stable (see docs/isletim-kilavuzu.md).
+		# HSTS starts short and is raised once the deployment is stable (docs/isletim-kilavuzu.md).
 		Strict-Transport-Security "max-age=300"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Cross-Origin-Opener-Policy "same-origin-allow-popups"
-		Cross-Origin-Resource-Policy "same-origin"
 		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=(), usb=()"
-		# Phase 0 baseline. Phase 3 adds hashes for any inline code, Trusted Types (report-only first) and report endpoints.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
 		-Server
 		-Via
 	}
 
+	# Keycloak plays the university SSO (ADR 0011). Its admin console is never public;
+	# use the development port or `kcadm.sh` inside the container instead.
+	@idp_admin path /idp/admin /idp/admin/*
+	respond @idp_admin 404
+
+	handle /idp/* {
+		# Keycloak sends its own CSP and frame options for its pages.
+		reverse_proxy {$IDP_UPSTREAM} {
+			header_up X-Forwarded-Proto https
+		}
+	}
+
 	handle /api/* {
+		header {
+			Cross-Origin-Opener-Policy "same-origin-allow-popups"
+			Cross-Origin-Resource-Policy "same-origin"
+		}
 		reverse_proxy {$API_UPSTREAM} {
 			# The API generates request ids itself; never forward a client-supplied one.
 			header_up -X-Request-Id
@@ -35,6 +49,17 @@
 	}
 
 	handle {
+		header {
+			Cross-Origin-Opener-Policy "same-origin-allow-popups"
+			Cross-Origin-Resource-Policy "same-origin"
+			Reporting-Endpoints "csp=\"/api/v1/security-reports\""
+			# The bundle has no inline code, so 'self' needs no hashes. Any inline script added
+			# later must be allowed by its sha256 hash, never with 'unsafe-inline'.
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self' {$APP_ORIGIN}/idp/; upgrade-insecure-requests; report-to csp"
+			# Trusted Types start in report-only mode; enforce once reports stay at zero.
+			Content-Security-Policy-Report-Only "require-trusted-types-for 'script'; trusted-types 'none'; report-to csp"
+		}
+
 		root * /srv
 
 		# Version-stamped build output is immutable.

@@ -1,0 +1,988 @@
+{
+  "realm": "etkinlik",
+  "displayName": "Üniversite Kimlik Doğrulama (demo)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 10,
+  "permanentLockout": false,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "tr",
+    "en"
+  ],
+  "defaultLocale": "tr",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(12) and notUsername",
+  "clients": [
+    {
+      "clientId": "etkinlik-web",
+      "name": "Etkinlik Platformu",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${OIDC_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "frontchannelLogout": false,
+      "redirectUris": [
+        "${APP_ORIGIN}/api/v1/auth/callback"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${APP_ORIGIN}/"
+      },
+      "protocolMappers": [
+        {
+          "name": "etkinlik_role",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "etkinlik_role",
+            "claim.name": "etkinlik_role",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "false"
+          }
+        },
+        {
+          "name": "student_number",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "student_number",
+            "claim.name": "student_number",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "false"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\": [{\"name\": \"username\", \"displayName\": \"Kullanıcı adı\", \"validations\": {\"length\": {\"min\": 3, \"max\": 255}, \"username-prohibited-characters\": {}, \"up-username-not-idn-homograph\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\"]}, \"multivalued\": false}, {\"name\": \"email\", \"displayName\": \"E-posta\", \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}, \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\"]}, \"multivalued\": false}, {\"name\": \"firstName\", \"displayName\": \"Ad\", \"validations\": {\"length\": {\"max\": 255}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\"]}, \"multivalued\": false, \"required\": {\"roles\": [\"user\"]}}, {\"name\": \"lastName\", \"displayName\": \"Soyad\", \"validations\": {\"length\": {\"max\": 255}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\"]}, \"multivalued\": false, \"required\": {\"roles\": [\"user\"]}}, {\"name\": \"etkinlik_role\", \"displayName\": \"Rol\", \"validations\": {\"options\": {\"options\": [\"student\", \"advisor\", \"admin\"]}}, \"permissions\": {\"view\": [\"admin\"], \"edit\": [\"admin\"]}, \"multivalued\": false}, {\"name\": \"student_number\", \"displayName\": \"Öğrenci numarası\", \"validations\": {\"pattern\": {\"pattern\": \"^[0-9A-Za-z]{4,20}$\"}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\"]}, \"multivalued\": false}], \"groups\": [], \"unmanagedAttributePolicy\": \"ADMIN_VIEW\"}"
+          ]
+        }
+      }
+    ]
+  },
+  "users": [
+    {
+      "id": "f9944fee-523b-5d07-bdb2-d581ab60db3a",
+      "username": "irem.sahin1",
+      "email": "irem.sahin1@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "İrem",
+      "lastName": "Şahin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260001"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "c2a112a7-1880-55bc-a0c3-753b512bd1b8",
+      "username": "tolga.sahin2",
+      "email": "tolga.sahin2@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Tolga",
+      "lastName": "Şahin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260002"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "e05a03c1-095a-5315-9e75-bbd5fdc0f372",
+      "username": "ayse.cetin3",
+      "email": "ayse.cetin3@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Ayşe",
+      "lastName": "Çetin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260003"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "2570b9d1-877a-50bc-b440-e55d15af69c1",
+      "username": "deniz.aslan4",
+      "email": "deniz.aslan4@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Deniz",
+      "lastName": "Aslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260004"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "0e772bb0-95bc-5bbc-a784-dffa8cfdb0a5",
+      "username": "umut.polat5",
+      "email": "umut.polat5@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Umut",
+      "lastName": "Polat",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260005"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "e7ef08ae-876c-574e-bbcb-a2931207f9bc",
+      "username": "kaan.kaya6",
+      "email": "kaan.kaya6@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Kaan",
+      "lastName": "Kaya",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260006"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "ebc72f13-260f-50c6-a093-1c16fa35e1ab",
+      "username": "emre.aslan7",
+      "email": "emre.aslan7@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Emre",
+      "lastName": "Aslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260007"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "b63da9ba-3aa8-511f-8642-a5f8d2b9c48b",
+      "username": "mustafa.kurt8",
+      "email": "mustafa.kurt8@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Mustafa",
+      "lastName": "Kurt",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260008"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "3cb8b6b6-0c3f-56eb-9212-18071de07cb8",
+      "username": "defne.kurt9",
+      "email": "defne.kurt9@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Defne",
+      "lastName": "Kurt",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260009"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "78aa53b2-0aa3-5163-9d26-2f93af24d053",
+      "username": "selin.aslan10",
+      "email": "selin.aslan10@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Selin",
+      "lastName": "Aslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260010"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "e461416c-9063-564a-892a-d8f5f8c17bf9",
+      "username": "gizem.gunes11",
+      "email": "gizem.gunes11@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Gizem",
+      "lastName": "Güneş",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260011"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "461ba3c7-5248-5de9-97cb-4d3c4456982e",
+      "username": "busra.kaya12",
+      "email": "busra.kaya12@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Büşra",
+      "lastName": "Kaya",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260012"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "68c2442c-000e-5ee8-82aa-c892a20e3030",
+      "username": "melis.sahin13",
+      "email": "melis.sahin13@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Melis",
+      "lastName": "Şahin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260013"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "4e238a7f-6d64-546e-83fe-7f47cb58e895",
+      "username": "emre.kara14",
+      "email": "emre.kara14@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Emre",
+      "lastName": "Kara",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260014"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "3014dceb-e0d1-5ff1-95de-54790b728dd5",
+      "username": "kerem.kara15",
+      "email": "kerem.kara15@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Kerem",
+      "lastName": "Kara",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260015"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "7eb05f22-7791-5fb6-9d72-1450b53915a6",
+      "username": "baris.kilic16",
+      "email": "baris.kilic16@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Barış",
+      "lastName": "Kılıç",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260016"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "91e43cd9-cc6e-5dc8-a497-bcbca577a0fd",
+      "username": "ahmet.demir17",
+      "email": "ahmet.demir17@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Ahmet",
+      "lastName": "Demir",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260017"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "2ef3b8c3-de12-5c48-86f4-d85057336d3d",
+      "username": "cem.kilic18",
+      "email": "cem.kilic18@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Cem",
+      "lastName": "Kılıç",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260018"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "272693d7-6e66-521c-9f9c-900908e51bb3",
+      "username": "baris.ozturk19",
+      "email": "baris.ozturk19@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Barış",
+      "lastName": "Öztürk",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260019"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "a45266dd-5d3a-5b91-80b1-8ef16c60fb24",
+      "username": "defne.kara20",
+      "email": "defne.kara20@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Defne",
+      "lastName": "Kara",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260020"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "8d55613e-a0b6-5f87-bc03-d8fc21827d76",
+      "username": "ayse.celik21",
+      "email": "ayse.celik21@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Ayşe",
+      "lastName": "Çelik",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260021"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "ef33b8ae-5397-5f54-88dc-b5e4ec6ade99",
+      "username": "ahmet.cetin22",
+      "email": "ahmet.cetin22@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Ahmet",
+      "lastName": "Çetin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260022"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "142414ff-3a48-5ed2-8082-2effc6e98d03",
+      "username": "sule.cetin23",
+      "email": "sule.cetin23@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Şule",
+      "lastName": "Çetin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260023"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "f83bd565-f068-5b24-b81b-60e07fc291a8",
+      "username": "sule.arslan24",
+      "email": "sule.arslan24@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Şule",
+      "lastName": "Arslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260024"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "c7c3020f-c583-5fc8-a9d6-3bee1c7220d8",
+      "username": "can.ozturk25",
+      "email": "can.ozturk25@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Can",
+      "lastName": "Öztürk",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260025"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "998bc298-d01c-53e3-b2da-d7b9a1f4e668",
+      "username": "gizem.ozturk26",
+      "email": "gizem.ozturk26@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Gizem",
+      "lastName": "Öztürk",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260026"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "651ca4b7-b8dc-5aff-a564-cc6aeb329f00",
+      "username": "arda.ozdemir27",
+      "email": "arda.ozdemir27@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Arda",
+      "lastName": "Özdemir",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260027"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "ed06deba-59e1-5053-9b88-41e96101d6df",
+      "username": "selin.kurt28",
+      "email": "selin.kurt28@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Selin",
+      "lastName": "Kurt",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260028"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "c604d70a-7909-5ee7-a8dc-62f057b87c39",
+      "username": "onur.aslan29",
+      "email": "onur.aslan29@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Onur",
+      "lastName": "Aslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260029"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "94d6b205-0991-574f-b93e-812a375b894f",
+      "username": "onur.aydin30",
+      "email": "onur.aydin30@ogr.uni.example",
+      "emailVerified": true,
+      "firstName": "Onur",
+      "lastName": "Aydın",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "student"
+        ],
+        "student_number": [
+          "20260030"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "03e79eba-3ac8-51ae-94d7-43db408f168b",
+      "username": "mehmet.aydin101",
+      "email": "mehmet.aydin101@uni.example",
+      "emailVerified": true,
+      "firstName": "Mehmet",
+      "lastName": "Aydın",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "advisor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "f145235f-f21c-56e7-88cb-ae0568873a70",
+      "username": "emre.demir102",
+      "email": "emre.demir102@uni.example",
+      "emailVerified": true,
+      "firstName": "Emre",
+      "lastName": "Demir",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "advisor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "cea2ff8a-2676-57b5-bc0d-aff566583e7f",
+      "username": "sule.demir103",
+      "email": "sule.demir103@uni.example",
+      "emailVerified": true,
+      "firstName": "Şule",
+      "lastName": "Demir",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "advisor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "5d463394-5cb9-5199-8022-d65fb8a3b2dc",
+      "username": "zeynep.sahin104",
+      "email": "zeynep.sahin104@uni.example",
+      "emailVerified": true,
+      "firstName": "Zeynep",
+      "lastName": "Şahin",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "advisor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "bf2af74c-e4ea-5a1e-ab92-75d0b6586832",
+      "username": "baris.aslan105",
+      "email": "baris.aslan105@uni.example",
+      "emailVerified": true,
+      "firstName": "Barış",
+      "lastName": "Aslan",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "advisor"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "bafc7d07-f297-5b18-83b8-4468e60896b3",
+      "username": "mustafa.yilmaz201",
+      "email": "mustafa.yilmaz201@uni.example",
+      "emailVerified": true,
+      "firstName": "Mustafa",
+      "lastName": "Yılmaz",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "6183a2e7-7172-5a7d-9b7e-444eed0cfec0",
+      "username": "deniz.yilmaz202",
+      "email": "deniz.yilmaz202@uni.example",
+      "emailVerified": true,
+      "firstName": "Deniz",
+      "lastName": "Yılmaz",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "59dc9184-7f8d-5d96-b180-63f05984a88d",
+      "username": "yonetici",
+      "email": "${INITIAL_ADMIN_EMAIL}",
+      "emailVerified": true,
+      "firstName": "İlk",
+      "lastName": "Yönetici",
+      "enabled": true,
+      "attributes": {
+        "etkinlik_role": [
+          "admin"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${DEMO_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

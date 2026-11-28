@@ -12,6 +12,12 @@ x-app-env: &app-env
   WORKER_DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-5}
   LOG_LEVEL: ${LOG_LEVEL:-info}
   SENTRY_DSN: ${SENTRY_DSN:-}
+  OIDC_ISSUER: ${APP_ORIGIN}/idp/realms/etkinlik
+  # Back-channel calls (discovery, token, JWKS) stay on the private network.
+  OIDC_INTERNAL_ISSUER: http://keycloak:8080/idp/realms/etkinlik
+  OIDC_CLIENT_ID: etkinlik-web
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET is required}
+  INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?INITIAL_ADMIN_EMAIL is required}
 
 x-hardening: &hardening
   read_only: true
@@ -28,6 +34,8 @@ services:
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS is required}
       API_UPSTREAM: api:3000
+      IDP_UPSTREAM: keycloak:8080
+      APP_ORIGIN: ${APP_ORIGIN}
     # Caddy is the public entry point; 80/443 must listen on all interfaces.
     ports:
       - '80:80' # nosemgrep: trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
@@ -41,6 +49,7 @@ services:
     security_opt: [no-new-privileges:true]
     depends_on:
       api: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
     networks: [edge]
 
   api:
@@ -115,8 +124,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./deploy/postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
@@ -124,6 +135,46 @@ services:
       retries: 10
     security_opt: [no-new-privileges:true]
     networks: [data]
+
+  # Identity provider. This course project has no real university SSO, so
+  # Keycloak plays that role in every environment, served under /idp (ADR 0011).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ['start', '--import-realm']
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?}
+      KC_HOSTNAME: ${APP_ORIGIN}/idp
+      KC_HTTP_ENABLED: 'true'
+      KC_HTTP_RELATIVE_PATH: /idp
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: 'true'
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER is required}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+      # Resolved inside deploy/keycloak/realm/etkinlik-realm.json on import.
+      APP_ORIGIN: ${APP_ORIGIN}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?DEMO_USER_PASSWORD is required}
+    volumes:
+      - ./deploy/keycloak/realm:/opt/keycloak/data/import:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /idp/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q UP <&3",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [edge, data]
 
   redis:
     image: redis:8.12.0-trixie

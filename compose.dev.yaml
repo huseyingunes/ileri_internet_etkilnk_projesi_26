@@ -1,7 +1,6 @@
 # Local development overrides:
 #   docker compose -f compose.yaml -f compose.dev.yaml up -d
-# Datastore ports are published on 127.0.0.1 only. Keycloak stands in for the
-# university identity provider (OIDC) during development.
+# Datastore ports are published on 127.0.0.1 only.
 services:
   api:
     environment:
@@ -21,11 +20,5 @@ services:
     ports: ['127.0.0.1:${DEV_GARAGE_PORT:-3900}:3900']
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.2
-    command: ['start-dev', '--http-port=8080']
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER is required}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+    # Admin console for local development only: http://127.0.0.1:<DEV_KEYCLOAK_PORT>/idp/admin
     ports: ['127.0.0.1:${DEV_KEYCLOAK_PORT:-8080}:8080']
-    security_opt: [no-new-privileges:true]
-    networks: [edge]
