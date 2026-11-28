@@ -46,6 +46,16 @@ export const envSchema = z
     INITIAL_ADMIN_EMAIL: z.email().transform((value) => value.toLowerCase()),
     SESSION_IDLE_SECONDS: positiveInt.max(86_400).default(1_800),
     SESSION_ABSOLUTE_SECONDS: positiveInt.max(604_800).default(43_200),
+    // Object storage (Garage, S3 compatible). `memory` is for tests/local only.
+    STORAGE_DRIVER: z.enum(['s3', 'memory']).default('s3'),
+    S3_ENDPOINT: z.url().optional(),
+    S3_REGION: z.string().min(1).max(64).default('garage'),
+    S3_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .default('etkinlik-media'),
+    S3_ACCESS_KEY_ID: z.string().min(1).max(256).optional(),
+    S3_SECRET_ACCESS_KEY: z.string().min(1).max(512).optional(),
   })
   .superRefine((env, context) => {
     if (env.NODE_ENV === 'production' && env.OIDC_ALLOW_INSECURE_HTTP) {
@@ -57,6 +67,24 @@ export const envSchema = z
     }
     if (!env.OIDC_ALLOW_INSECURE_HTTP && new URL(env.OIDC_ISSUER).protocol !== 'https:') {
       context.addIssue({ code: 'custom', path: ['OIDC_ISSUER'], message: 'must use https' });
+    }
+    if (env.STORAGE_DRIVER === 'memory' && env.NODE_ENV === 'production') {
+      context.addIssue({
+        code: 'custom',
+        path: ['STORAGE_DRIVER'],
+        message: 'must be s3 in production',
+      });
+    }
+    if (env.STORAGE_DRIVER === 's3') {
+      for (const key of ['S3_ENDPOINT', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
+        if (env[key] === undefined) {
+          context.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'is required when STORAGE_DRIVER=s3',
+          });
+        }
+      }
     }
     if (env.SESSION_IDLE_SECONDS > env.SESSION_ABSOLUTE_SECONDS) {
       context.addIssue({

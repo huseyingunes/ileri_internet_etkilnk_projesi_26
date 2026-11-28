@@ -144,6 +144,16 @@ export class UsersService {
     return new Map(rows.map((row) => [row.id, toSummary(row)]));
   }
 
+  async listAdvisors(): Promise<{ items: UserSummary[] }> {
+    const rows = await this.db.users.findMany({
+      where: { role: 'advisor', is_active: true, anonymized_at: null },
+      orderBy: { display_name: 'asc' },
+      take: 200,
+      select: { public_id: true, display_name: true, role: true },
+    });
+    return { items: rows.map(toSummary) };
+  }
+
   async getProfile(id: bigint) {
     const row = await this.db.users.findUniqueOrThrow({ where: { id } });
     return {

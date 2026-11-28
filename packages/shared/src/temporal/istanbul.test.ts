@@ -1,7 +1,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { Temporal } from './temporal.js';
-import { istanbulDateOf, istanbulDayWindow, isWithinDayWindow } from './istanbul.js';
+import {
+  istanbulDateOf,
+  istanbulDayWindow,
+  istanbulLocalToIso,
+  isoToIstanbulLocal,
+  isWithinDayWindow,
+} from './istanbul.js';
 
 // 2000-01-01 .. 2100-01-01 in epoch milliseconds.
 const epochMs = fc.integer({ min: 946_684_800_000, max: 4_102_444_800_000 });
@@ -39,5 +45,12 @@ describe('istanbul day window', () => {
     const window = istanbulDayWindow(Temporal.PlainDate.from('2026-11-28'));
     const lastMoment = Temporal.Instant.from('2026-11-28T20:59:59.999Z');
     expect(isWithinDayWindow(window, lastMoment)).toBe(true);
+  });
+});
+
+describe('Istanbul wall time conversion', () => {
+  it('round-trips datetime-local values', () => {
+    expect(istanbulLocalToIso('2027-03-10T10:00')).toBe('2027-03-10T10:00+03:00');
+    expect(isoToIstanbulLocal('2027-03-10T07:00:00Z')).toBe('2027-03-10T10:00');
   });
 });

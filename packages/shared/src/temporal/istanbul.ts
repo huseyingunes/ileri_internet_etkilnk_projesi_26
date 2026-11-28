@@ -29,6 +29,31 @@ export function istanbulDayWindow(day: PlainDate): DayWindow {
   return { opensAt, closesAt };
 }
 
+/** `datetime-local` input value (Istanbul wall time) → RFC 3339 with offset. */
+export function istanbulLocalToIso(local: string): string {
+  return Temporal.PlainDateTime.from(local)
+    .toZonedDateTime(ISTANBUL_TIME_ZONE)
+    .toString({ timeZoneName: 'never', smallestUnit: 'minute' });
+}
+
+/** RFC 3339 instant → `datetime-local` value in Istanbul wall time. */
+export function isoToIstanbulLocal(iso: string): string {
+  return Temporal.Instant.from(iso)
+    .toZonedDateTimeISO(ISTANBUL_TIME_ZONE)
+    .toPlainDateTime()
+    .toString({ smallestUnit: 'minute' });
+}
+
+/** Human-readable Istanbul date and time in Turkish. */
+export function formatIstanbul(iso: string, options: Intl.DateTimeFormatOptions = {}): string {
+  return Temporal.Instant.from(iso).toLocaleString('tr-TR', {
+    timeZone: ISTANBUL_TIME_ZONE,
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    ...options,
+  });
+}
+
 export function isWithinDayWindow(window: DayWindow, instant: Instant): boolean {
   return (
     Temporal.Instant.compare(instant, window.opensAt) >= 0 &&
