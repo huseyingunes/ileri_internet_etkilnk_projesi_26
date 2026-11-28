@@ -189,6 +189,8 @@ describe('in-app notifications and e-mail', () => {
     expect(ok.status).toBe(200);
     expect(await ok.text()).toBe('12345');
     expect((await fetch(url('wrong-token-0123456789abcdef'))).status).toBe(403);
+    const html = `${t.base}/api/v1/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=${VERIFY_TOKEN}&hub.challenge=%3Cscript%3E`;
+    expect((await fetch(html)).status).toBe(422);
   });
 });
 
