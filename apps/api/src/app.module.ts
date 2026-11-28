@@ -22,6 +22,8 @@ import { MediaModule } from './modules/media/media.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { MessagingModule } from './infra/messaging.js';
+import { PersonalDataRegistryModule } from './modules/privacy/personal-data.registry.js';
+import { PrivacyModule } from './modules/privacy/privacy.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { FeedbackModule } from './modules/feedback/feedback.module.js';
 import { ScoringModule } from './modules/scoring/scoring.module.js';
@@ -58,6 +60,8 @@ export class AppModule {
         ScoringModule,
         FeedbackModule,
         AnalyticsModule,
+        PersonalDataRegistryModule,
+        PrivacyModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.
