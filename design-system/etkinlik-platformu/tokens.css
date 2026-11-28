@@ -24,6 +24,9 @@
   --color-destructive: #dc2626;
   --color-on-destructive: #ffffff;
   --color-ring: #1e3a5f;
+  /* Chart series (dataviz reference slots 1–2, validated on #ffffff: CVD ΔE 24.7). */
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
   --font-heading: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-body: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif;
   --space-xs: 4px;

@@ -17,6 +17,7 @@ import { MessagingModule } from '../infra/messaging.js';
 import { NotificationJobsModule } from '../modules/notifications/notification.jobs.js';
 import { NotificationsModule } from '../modules/notifications/notifications.module.js';
 import { EventsModule } from '../modules/events/events.module.js';
+import { AnalyticsModule, AnalyticsRefresher } from '../modules/analytics/analytics.module.js';
 import { FeedbackJobs } from '../modules/feedback/feedback.jobs.js';
 import { FeedbackModule } from '../modules/feedback/feedback.module.js';
 import { ScoringJobs } from '../modules/scoring/scoring.jobs.js';
@@ -54,6 +55,7 @@ export class WorkerModule {
         EventCompletedModule,
         ScoringModule,
         FeedbackModule,
+        AnalyticsModule,
       ],
       providers: [
         JobRunnerService,
@@ -63,6 +65,7 @@ export class WorkerModule {
         AttendanceFinalizer,
         ScoringJobs,
         FeedbackJobs,
+        AnalyticsRefresher,
       ],
     };
   }
