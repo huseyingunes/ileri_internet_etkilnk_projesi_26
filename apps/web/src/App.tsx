@@ -7,7 +7,10 @@ import { SystemStatus } from './components/SystemStatus';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { EventsPage } from './pages/EventsPage';
+import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
+import { ResultsPage } from './pages/ResultsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
+import { VotingPage } from './pages/VotingPage';
 import { Link, matchPath, useLocation } from './router';
 import { buttonClass, StatusMessage } from './ui';
 
@@ -37,9 +40,12 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { href: '/oylama', label: 'Oylama', roles: ['student', 'advisor', 'admin'] },
   { href: '/etkinlikler', label: 'Etkinlikler', roles: ['student', 'advisor', 'admin'] },
   { href: '/etkinlikler/yeni', label: 'Etkinlik öner', roles: ['student', 'advisor', 'admin'] },
   { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
+  { href: '/gunluk-secim', label: 'Günlük seçim', roles: ['admin'] },
+  { href: '/ayarlar', label: 'Ayarlar', roles: ['admin'] },
 ];
 
 function MainNav({ role, pathname }: { role: Role; pathname: string }) {
@@ -94,6 +100,10 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/etkinlikler') return <EventsPage />;
   if (pathname === '/etkinlikler/yeni') return <EventCreatePage role={role} />;
   if (pathname === '/onaylar' && role !== 'student') return <ReviewsPage />;
+  if (pathname === '/oylama') return <VotingPage role={role} />;
+  if (pathname === '/sonuclar') return <ResultsPage role={role} />;
+  if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
+  if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
   const detail = matchPath('/etkinlikler/:id', pathname);
   if (detail?.['id'] !== undefined) return <EventDetailPage key={detail['id']} id={detail['id']} />;
   if (pathname === '/') return <Home signedIn />;
