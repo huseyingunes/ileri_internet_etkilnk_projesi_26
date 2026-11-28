@@ -100,6 +100,7 @@ beforeAll(async () => {
     OIDC_ALLOW_INSECURE_HTTP: 'true',
     INITIAL_ADMIN_EMAIL,
     STORAGE_DRIVER: 'memory',
+    QR_SIGNING_SECRET: 'qr-test-secret-0123456789abcdef0123',
   });
   const started = await createApp(env);
   app = started;
