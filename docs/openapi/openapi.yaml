@@ -1682,7 +1682,7 @@ paths:
             name: hub.challenge,
             in: query,
             required: true,
-            schema: { type: string, maxLength: 256 },
+            schema: { type: string, pattern: '^[0-9]{1,15}$' },
           }
       responses:
         '200':
