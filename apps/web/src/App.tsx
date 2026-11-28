@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Role } from '@etkinlik/shared';
-import type { ReactNode } from 'react';
+import { lazy, type ReactNode, Suspense } from 'react';
 import { fetchMe, loginHref } from './api/session';
 import { AccountMenu } from './components/AccountMenu';
 import { NotificationBell } from './components/NotificationBell';
@@ -21,6 +21,11 @@ import { ReviewsPage } from './pages/ReviewsPage';
 import { VotingPage } from './pages/VotingPage';
 import { Link, matchPath, useLocation } from './router';
 import { buttonClass, StatusMessage } from './ui';
+
+// Dashboard and the chart library are a separate chunk (loaded only for advisors and admins).
+const DashboardPage = lazy(async () => ({
+  default: (await import('./pages/DashboardPage')).DashboardPage,
+}));
 
 function LoginFailedNotice() {
   const { search } = useLocation();
@@ -55,6 +60,7 @@ const NAV: NavItem[] = [
   { href: '/puanim', label: 'Puanım', roles: ['student'] },
   { href: '/sorularim', label: 'Sorularım', roles: ['student'] },
   { href: '/liderlik', label: 'Liderlik', roles: ['student', 'advisor', 'admin'] },
+  { href: '/panel', label: 'Panel', roles: ['advisor', 'admin'] },
   { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
   { href: '/gunluk-secim', label: 'Günlük seçim', roles: ['admin'] },
   { href: '/puan-tablosu', label: 'Puan tablosu', roles: ['admin'] },
@@ -118,6 +124,13 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
+  if (pathname === '/panel' && role !== 'student') {
+    return (
+      <Suspense fallback={<StatusMessage>Panel yükleniyor…</StatusMessage>}>
+        <DashboardPage />
+      </Suspense>
+    );
+  }
   if (pathname === '/bildirimler') return <NotificationsPage />;
   if (pathname === '/profil') return <ProfilePage role={role} />;
   if (pathname === '/sorularim' && role === 'student') return <ReasonPromptsPage />;
