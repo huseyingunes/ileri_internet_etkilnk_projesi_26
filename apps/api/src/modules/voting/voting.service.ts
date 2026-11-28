@@ -16,7 +16,6 @@ import { ConflictError, NotFoundError, ValidationError } from '../../common/erro
 import { isoFromDb, toDbDate } from '../../common/time.js';
 import { DatabaseService } from '../../infra/database.js';
 import { RedisService } from '../../infra/redis.js';
-import { Prisma } from '../../generated/prisma/client.js';
 import { type EventSummaryView, EventsService } from '../events/events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 
@@ -258,26 +257,21 @@ export class VotingService {
           category: ballot.category,
         },
       });
-    let created = true;
-    let row = await existing();
-    if (row === null) {
-      try {
-        row = await this.db.votes.create({
-          data: {
-            student_user_id: caller.userId,
-            daily_ballot_id: ballot.id,
-            voting_date: dbDate(today),
-            category: ballot.category,
-          },
-        });
-      } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'))
-          throw error;
-        row = await existing();
-      }
-    } else {
-      created = false;
-    }
+    // INSERT ... ON CONFLICT DO NOTHING: exactly one concurrent request inserts,
+    // the others see count 0 and read the stored vote (no exception path).
+    const inserted = await this.db.votes.createMany({
+      data: [
+        {
+          student_user_id: caller.userId,
+          daily_ballot_id: ballot.id,
+          voting_date: dbDate(today),
+          category: ballot.category,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    const created = inserted.count === 1;
+    const row = await existing();
     if (row === null) throw new ConflictError('Oy kaydedilemedi.');
     if (row.daily_ballot_id !== ballot.id) {
       throw new ConflictError('Bu kategoride bugün başka bir etkinliğe oy verdiniz.');
