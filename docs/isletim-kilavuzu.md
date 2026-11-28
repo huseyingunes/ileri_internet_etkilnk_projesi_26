@@ -155,8 +155,12 @@ docker compose exec garage /garage key create etkinlik-api
 docker compose exec garage /garage bucket allow --read --write etkinlik-media --key etkinlik-api
 ```
 
-Kova özeldir; web sitesi erişimi açılmaz. Erişim anahtarları Aşama 4'te ortam
-değişkenlerine eklenecektir.
+Kova özeldir; web sitesi erişimi açılmaz. Anahtarı `.env` dosyasına ekleyin:
+
+```sh
+docker compose exec garage /garage key info etkinlik-api --show-secret
+# Key ID → S3_ACCESS_KEY_ID, Secret key → S3_SECRET_ACCESS_KEY
+```
 
 ## HSTS
 

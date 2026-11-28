@@ -7,11 +7,15 @@ import { RateLimitGuard } from './common/rate-limit/rate-limit.js';
 import { ConfigModule } from './config/config.module.js';
 import type { Env } from './config/env.js';
 import { DatabaseModule } from './infra/database.js';
+import { QueueModule } from './infra/queue.js';
 import { RedisModule } from './infra/redis.js';
+import { StorageModule } from './infra/storage.js';
 import { CommunitiesModule } from './modules/communities/communities.module.js';
+import { EventsModule } from './modules/events/events.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AuthGuard } from './modules/identity/auth.guard.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { MediaModule } from './modules/media/media.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
 import { SecurityReportsModule } from './modules/security-reports/security-reports.module.js';
 
@@ -25,11 +29,15 @@ export class AppModule {
         LoggerModule.forRoot(loggerParams(env, { http: true })),
         DatabaseModule.forRoot(env.API_DB_POOL_SIZE),
         RedisModule,
+        StorageModule,
+        QueueModule,
         HealthModule,
         IdentityModule,
         CommunitiesModule,
         ProfileModule,
         SecurityReportsModule,
+        MediaModule,
+        EventsModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.

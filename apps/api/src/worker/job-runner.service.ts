@@ -8,6 +8,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { ENV } from '../config/config.module.js';
 import type { Env } from '../config/env.js';
+import { JobRegistry } from '../infra/queue.js';
 import { createRedisConnection } from '../infra/redis.js';
 import { DEFAULT_JOB_OPTIONS, QUEUE_NAMES } from './queues.js';
 
@@ -21,8 +22,8 @@ function requestIdOf(data: unknown): string | undefined {
 }
 
 /**
- * Hosts the BullMQ workers. Phase 0 registers no job handlers yet; unknown
- * job names fail loudly instead of being silently dropped.
+ * Hosts the BullMQ worker and dispatches jobs to handlers registered in
+ * JobRegistry. Unknown job names fail loudly instead of being dropped.
  */
 @Injectable()
 export class JobRunnerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -31,6 +32,7 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
 
   constructor(
     @Inject(ENV) private readonly env: Env,
+    private readonly registry: JobRegistry,
     @InjectPinoLogger(JobRunnerService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -53,8 +55,12 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
     this.logger.info({ queue: QUEUE_NAMES.system }, 'Worker started');
   }
 
-  private process(job: Job<unknown>): Promise<void> {
-    return Promise.reject(new Error(`No handler registered for job "${job.name}"`));
+  private async process(job: Job<unknown>): Promise<void> {
+    const handler = this.registry.get(job.name);
+    if (handler === undefined) {
+      throw new Error(`No handler registered for job "${job.name}"`);
+    }
+    await handler.handle(job.data);
   }
 
   private async handleFailure(job: Job<unknown> | undefined, error: Error): Promise<void> {

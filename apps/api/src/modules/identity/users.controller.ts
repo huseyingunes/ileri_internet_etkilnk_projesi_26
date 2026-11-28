@@ -46,6 +46,13 @@ export class UsersController {
     );
   }
 
+  /** Advisors a student can pick for a proposal (names only). */
+  @Roles('student', 'advisor', 'admin')
+  @Get('advisors')
+  advisors() {
+    return this.users.listAdvisors();
+  }
+
   @Roles('admin')
   @Get('audit-log')
   audit(@Query(new ZodPipe(auditQuery)) query: z.output<typeof auditQuery>) {

@@ -234,6 +234,38 @@ export class CommunitiesService {
     });
   }
 
+  /** For the events module: a community the caller may organize for (member, its advisor or admin). */
+  async resolveOrganizer(
+    publicId: string,
+    caller: AuthContext,
+  ): Promise<{ id: bigint; advisorIds: bigint[] }> {
+    const row = await this.db.communities.findUnique({
+      where: { public_id: publicId },
+      include: {
+        community_advisors: { select: { advisor_user_id: true } },
+        community_members: { where: { user_id: caller.userId }, select: { user_id: true } },
+      },
+    });
+    if (row?.archived_at !== null) throw new NotFoundError('Topluluk bulunamadı.');
+    const advisorIds = row.community_advisors.map((a) => a.advisor_user_id);
+    const allowed =
+      caller.role === 'admin' ||
+      row.community_members.length > 0 ||
+      advisorIds.includes(caller.userId);
+    if (!allowed) throw new ForbiddenError('Bu topluluk adına etkinlik oluşturamazsınız.');
+    return { id: row.id, advisorIds };
+  }
+
+  /** Names for ids owned by other modules, in one query. */
+  async summaries(ids: readonly bigint[]): Promise<Map<bigint, CommunitySummary>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db.communities.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      select: { id: true, public_id: true, name: true },
+    });
+    return new Map(rows.map((row) => [row.id, { id: row.public_id, name: row.name }]));
+  }
+
   /** Communities a user belongs to or advises (used by GET /me). */
   async forUser(userId: bigint): Promise<CommunitySummary[]> {
     const rows = await this.db.communities.findMany({

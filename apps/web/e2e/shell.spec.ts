@@ -161,7 +161,7 @@ test.describe('account', () => {
     await mockSession(page, false);
     await page.goto('/?sekme=oylar');
 
-    const login = page.getByRole('link', { name: 'Giriş yap' });
+    const login = page.getByRole('link', { name: 'Giriş yap', exact: true });
     await expect(login).toHaveAttribute(
       'href',
       `/api/v1/auth/login?returnTo=${encodeURIComponent('/?sekme=oylar')}`,
@@ -193,7 +193,7 @@ test.describe('account', () => {
     await page.goto('/?giris=hata');
 
     await expect(page.getByRole('alert')).toContainText('Giriş tamamlanamadı.');
-    const login = page.getByRole('link', { name: 'Giriş yap' });
+    const login = page.getByRole('link', { name: 'Giriş yap', exact: true });
     await expect(login).toHaveAttribute(
       'href',
       `/api/v1/auth/login?returnTo=${encodeURIComponent('/')}`,

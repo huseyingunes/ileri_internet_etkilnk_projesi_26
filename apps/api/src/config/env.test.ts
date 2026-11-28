@@ -10,6 +10,7 @@ const valid = {
   OIDC_CLIENT_ID: 'etkinlik-web',
   OIDC_CLIENT_SECRET: '0123456789abcdef0123456789abcdef',
   INITIAL_ADMIN_EMAIL: 'Admin@Uni.Example',
+  STORAGE_DRIVER: 'memory',
 };
 
 describe('loadEnv', () => {
@@ -68,6 +69,20 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv({ ...valid, SESSION_IDLE_SECONDS: '7200', SESSION_ABSOLUTE_SECONDS: '3600' }),
     ).toThrow(ConfigError);
+  });
+
+  it('requires S3 settings for the s3 storage driver and refuses memory in production', () => {
+    expect(() => loadEnv({ ...valid, STORAGE_DRIVER: 's3' })).toThrow(ConfigError);
+    expect(() => loadEnv({ ...valid, NODE_ENV: 'production' })).toThrow(ConfigError);
+    expect(
+      loadEnv({
+        ...valid,
+        STORAGE_DRIVER: 's3',
+        S3_ENDPOINT: 'http://garage:3900',
+        S3_ACCESS_KEY_ID: 'GKexample',
+        S3_SECRET_ACCESS_KEY: 'secret',
+      }).S3_BUCKET,
+    ).toBe('etkinlik-media');
   });
 
   it('requires an https origin', () => {
