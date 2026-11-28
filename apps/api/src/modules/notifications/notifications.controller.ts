@@ -40,7 +40,8 @@ const listQuery = pageQuerySchema.extend(notificationListQuerySchema.shape).stri
 const verifyQuery = z.object({
   'hub.mode': z.literal('subscribe'),
   'hub.verify_token': z.string().max(256),
-  'hub.challenge': z.string().max(256),
+  // Meta sends a numeric challenge; anything else is rejected (no reflected input).
+  'hub.challenge': z.string().regex(/^[0-9]{1,15}$/),
 });
 
 @Controller()
@@ -118,7 +119,7 @@ export class NotificationsController {
       throw new ForbiddenError('Doğrulama başarısız.');
     }
     response.type('text/plain');
-    return query['hub.challenge'];
+    return String(Number(query['hub.challenge']));
   }
 
   /**
