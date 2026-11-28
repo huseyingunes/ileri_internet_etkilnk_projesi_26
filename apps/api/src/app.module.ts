@@ -10,6 +10,8 @@ import { DatabaseModule } from './infra/database.js';
 import { QueueModule } from './infra/queue.js';
 import { RedisModule } from './infra/redis.js';
 import { StorageModule } from './infra/storage.js';
+import { ApplicationsModule } from './modules/applications/applications.module.js';
+import { ApplicationsQueryModule } from './modules/applications/applications.query.js';
 import { CommunitiesModule } from './modules/communities/communities.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -33,6 +35,7 @@ export class AppModule {
         RedisModule,
         StorageModule,
         QueueModule,
+        ApplicationsQueryModule,
         HealthModule,
         IdentityModule,
         CommunitiesModule,
@@ -42,6 +45,7 @@ export class AppModule {
         EventsModule,
         SettingsModule,
         VotingModule,
+        ApplicationsModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.

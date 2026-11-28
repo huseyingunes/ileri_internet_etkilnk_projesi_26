@@ -21,6 +21,7 @@ import { toPage } from '../../common/pagination.js';
 import { isoFromDb, nowForDb, toDbDate } from '../../common/time.js';
 import { DatabaseService } from '../../infra/database.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { type ApplicationView, ApplicationsQuery } from '../applications/applications.query.js';
 import { CommunitiesService } from '../communities/communities.service.js';
 import { AuditService } from '../identity/audit.service.js';
 import { UsersService } from '../identity/users.service.js';
@@ -81,7 +82,14 @@ export interface EventView extends EventSummaryView {
   rejectionReason?: string;
   cancellationReason?: string;
   createdAt: string;
-  viewer: { canEdit: boolean; canReview: boolean; canManagePhotos: boolean };
+  confirmedCount: number;
+  waitlistCount: number;
+  viewer: {
+    canEdit: boolean;
+    canReview: boolean;
+    canManagePhotos: boolean;
+    application?: ApplicationView;
+  };
 }
 
 const eventInclude = {
@@ -112,6 +120,7 @@ export class EventsService {
     private readonly communities: CommunitiesService,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly applications: ApplicationsQuery,
   ) {}
 
   // --- Read side ---------------------------------------------------------------
@@ -124,12 +133,17 @@ export class EventsService {
       r.organizer_community_id === null ? [] : [r.organizer_community_id],
     );
     const coverIds = rows.flatMap((r) => (r.cover_media_id === null ? [] : [r.cover_media_id]));
-    const [people, communities, covers] = await Promise.all([
+    const [people, communities, covers, counts] = await Promise.all([
       this.users.summaries(userIds),
       this.communities.summaries(communityIds),
       this.media.views(coverIds),
+      this.applications.counts(rows.map((r) => r.id)),
     ]);
-    return rows.map((row) => this.toView(row, caller, people, communities, covers));
+    return rows.map((row) => ({
+      ...this.toView(row, caller, people, communities, covers),
+      confirmedCount: counts.get(row.id)?.confirmed ?? 0,
+      waitlistCount: counts.get(row.id)?.waitlisted ?? 0,
+    }));
   }
 
   private toView(
@@ -138,7 +152,7 @@ export class EventsService {
     people: Map<bigint, UserSummary>,
     communities: Map<bigint, CommunitySummary>,
     covers: Map<bigint, MediaView>,
-  ): EventView {
+  ): Omit<EventView, 'confirmedCount' | 'waitlistCount'> {
     const community =
       row.organizer_community_id === null ? undefined : communities.get(row.organizer_community_id);
     const person = row.organizer_user_id === null ? undefined : people.get(row.organizer_user_id);
@@ -240,6 +254,8 @@ export class EventsService {
           cancellationReason: _c,
           createdAt: _ca,
           viewer: _v,
+          confirmedCount: _cc,
+          waitlistCount: _wc,
           ...summary
         }) => summary,
       ),
@@ -259,9 +275,12 @@ export class EventsService {
   }
 
   async get(publicId: string, caller: AuthContext): Promise<EventView> {
-    const [view] = await this.toViews([await this.requireRow(publicId, caller)], caller);
+    const row = await this.requireRow(publicId, caller);
+    const [view] = await this.toViews([row], caller);
     if (view === undefined) throw new NotFoundError('Etkinlik bulunamadı.');
-    return view;
+    if (caller.role !== 'student') return view;
+    const application = await this.applications.forStudent(row.id, row.public_id, caller.userId);
+    return application === undefined ? view : { ...view, viewer: { ...view.viewer, application } };
   }
 
   /** Summaries for event ids owned by other modules (one query each for events and relations). */
@@ -289,6 +308,8 @@ export class EventsService {
           cancellationReason: _c,
           createdAt: _ca,
           viewer: _v,
+          confirmedCount: _cc,
+          waitlistCount: _wc,
           ...summary
         } = view;
         return [row.id, summary];
