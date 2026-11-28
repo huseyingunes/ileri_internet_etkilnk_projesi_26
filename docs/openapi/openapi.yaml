@@ -1443,6 +1443,7 @@ paths:
       tags: [attendance]
       operationId: submitExcuse
       summary: Mazeret bildir
+      description: Onaylı başvurusu olan öğrenci, etkinlik bitiminden sonraki 7 güne kadar bir kez bildirebilir; aksi hâlde 409.
       x-roles: [student]
       x-phase: 8
       requestBody:
