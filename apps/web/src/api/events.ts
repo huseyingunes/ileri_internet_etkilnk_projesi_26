@@ -28,7 +28,11 @@ export const applicationSchema = z.object({
 });
 export type Application = z.infer<typeof applicationSchema>;
 
-const userSummarySchema = z.object({ id: z.string(), displayName: z.string(), role: roleSchema });
+export const userSummarySchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  role: roleSchema,
+});
 
 export const eventSummarySchema = z.object({
   id: z.string(),
@@ -65,7 +69,7 @@ export const eventSchema = eventSummarySchema.extend({
 });
 export type EventDetail = z.infer<typeof eventSchema>;
 
-const pageOf = <T extends z.ZodType>(item: T) =>
+export const pageOf = <T extends z.ZodType>(item: T) =>
   z.object({ items: z.array(item), page: z.object({ nextCursor: z.string().nullable() }) });
 
 export const eventPageSchema = pageOf(eventSummarySchema);

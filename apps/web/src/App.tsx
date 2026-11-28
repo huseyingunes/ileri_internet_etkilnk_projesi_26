@@ -12,6 +12,7 @@ import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
 import { AttendancePage } from './pages/AttendancePage';
 import { QrDisplayPage } from './pages/QrDisplayPage';
 import { ResultsPage } from './pages/ResultsPage';
+import { LeaderboardPage, MyScorePage, ScoreRulesPage } from './pages/ScorePages';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { VotingPage } from './pages/VotingPage';
 import { Link, matchPath, useLocation } from './router';
@@ -47,8 +48,11 @@ const NAV: NavItem[] = [
   { href: '/etkinlikler', label: 'Etkinlikler', roles: ['student', 'advisor', 'admin'] },
   { href: '/etkinlikler/yeni', label: 'Etkinlik öner', roles: ['student', 'advisor', 'admin'] },
   { href: '/basvurularim', label: 'Başvurularım', roles: ['student'] },
+  { href: '/puanim', label: 'Puanım', roles: ['student'] },
+  { href: '/liderlik', label: 'Liderlik', roles: ['student', 'advisor', 'admin'] },
   { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
   { href: '/gunluk-secim', label: 'Günlük seçim', roles: ['admin'] },
+  { href: '/puan-tablosu', label: 'Puan tablosu', roles: ['admin'] },
   { href: '/ayarlar', label: 'Ayarlar', roles: ['admin'] },
 ];
 
@@ -109,6 +113,9 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
+  if (pathname === '/puanim' && role === 'student') return <MyScorePage />;
+  if (pathname === '/liderlik') return <LeaderboardPage />;
+  if (pathname === '/puan-tablosu') return <ScoreRulesPage role={role} />;
   if (pathname === '/katilim') return <AttendancePage role={role} />;
   const qr = matchPath('/etkinlikler/:id/qr', pathname);
   if (qr?.['id'] !== undefined && role !== 'student') return <QrDisplayPage eventId={qr['id']} />;
