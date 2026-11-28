@@ -150,6 +150,19 @@ export class ScoringService {
     return season;
   }
 
+  /** For analytics: a season's name, dates and Istanbul time interval [from, to). */
+  async seasonRange(name: string | undefined) {
+    const season = await this.seasonByName(name);
+    const { from, to } = seasonInterval(season);
+    return {
+      name: season.name,
+      startsOn: plainDate(season.starts_on),
+      endsOn: plainDate(season.ends_on),
+      from,
+      to,
+    };
+  }
+
   async listSeasons(): Promise<{ items: SeasonView[] }> {
     await this.currentSeason();
     const rows = await this.db.seasons.findMany({ orderBy: { starts_on: 'desc' } });
