@@ -25,6 +25,7 @@
     "bullmq": "6.7.10",
     "ioredis": "6.1.0",
     "nestjs-pino": "5.3.2",
+    "nodemailer": "10.6.1",
     "openid-client": "6.9.1",
     "pino": "10.4.0",
     "pino-http": "11.0.0",
@@ -39,6 +40,7 @@
     "@testcontainers/postgresql": "12.2.2",
     "@testcontainers/redis": "12.2.2",
     "@types/express": "5.0.6",
+    "@types/nodemailer": "8.0.2",
     "prisma": "7.10.1",
     "testcontainers": "12.2.2",
     "unplugin-swc": "2.0.0"

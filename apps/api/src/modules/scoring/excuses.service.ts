@@ -17,6 +17,7 @@ import { AttendanceService } from '../attendance/attendance.service.js';
 import { EventsService } from '../events/events.service.js';
 import { AuditService } from '../identity/audit.service.js';
 import { UsersService } from '../identity/users.service.js';
+import { Notifier } from '../notifications/notifier.service.js';
 import { ScoringService } from './scoring.service.js';
 
 /** Excuses may be submitted until a week after the event ends. */
@@ -59,6 +60,7 @@ export class ExcusesService {
     private readonly users: UsersService,
     private readonly scoring: ScoringService,
     private readonly audit: AuditService,
+    private readonly notifier: Notifier,
   ) {}
 
   private async requireEvent(publicId: string) {
@@ -169,6 +171,16 @@ export class ExcusesService {
       const seasonId = entries[0]?.seasonId;
       if (points !== 0 && seasonId !== undefined) {
         await this.scoring.writeReversal(seasonId, excuse.student_user_id, event.id, points);
+        await this.notifier.notify([
+          {
+            userId: excuse.student_user_id,
+            type: 'points_changed',
+            title: `Puanınız iade edildi: +${String(points)}`,
+            body: `"${event.title}" etkinliği için mazeretiniz onaylandı; kaybettiğiniz puan iade edildi.`,
+            link: '/puanim',
+            dedupeKey: `points_changed:excuse:${excuse.public_id}`,
+          },
+        ]);
       }
     }
     await this.audit.record({

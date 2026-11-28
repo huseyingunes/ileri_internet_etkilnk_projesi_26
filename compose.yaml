@@ -24,6 +24,15 @@ x-app-env: &app-env
   S3_BUCKET: ${S3_BUCKET:-etkinlik-media}
   S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required (garage key create)}
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+  # E-mail over SMTP (Mailpit in development: compose.dev.yaml).
+  SMTP_URL: ${SMTP_URL:?SMTP_URL is required}
+  EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
+  # WhatsApp Cloud API stays off unless configured (ADR 0017).
+  WHATSAPP_DRIVER: ${WHATSAPP_DRIVER:-disabled}
+  WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+  WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+  WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+  WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
 
 x-hardening: &hardening
   read_only: true

@@ -299,6 +299,15 @@ export class AttendanceService {
     return new Map(rows.map((r) => [r.student_user_id, parseStatus(r.status)]));
   }
 
+  /** For inferred interests: (student, attended event) pairs finalized since an instant. */
+  async attendedSince(since: Instant): Promise<{ userId: bigint; eventId: bigint }[]> {
+    const rows = await this.db.attendances.findMany({
+      where: { status: 'attended', finalized_at: { gte: toDbDate(since) } },
+      select: { student_user_id: true, event_id: true },
+    });
+    return rows.map((r) => ({ userId: r.student_user_id, eventId: r.event_id }));
+  }
+
   async attendedCountOf(eventId: bigint): Promise<number> {
     return await this.db.attendances.count({ where: { event_id: eventId, status: 'attended' } });
   }

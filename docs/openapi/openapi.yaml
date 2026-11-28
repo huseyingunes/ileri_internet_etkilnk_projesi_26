@@ -1643,7 +1643,7 @@ paths:
       tags: [notifications]
       operationId: verifyWhatsappWebhook
       summary: Meta webhook doğrulama
-      description: '`hub.verify_token` sabit zamanlı karşılaştırmayla doğrulanır.'
+      description: '`hub.verify_token` sabit zamanlı karşılaştırmayla doğrulanır. WhatsApp yapılandırılmamışsa 403.'
       security: []
       x-roles: [public]
       x-phase: 10
@@ -1659,7 +1659,7 @@ paths:
             name: hub.challenge,
             in: query,
             required: true,
-            schema: { type: string, maxLength: 256 },
+            schema: { type: string, pattern: '^[0-9]{1,15}$' },
           }
       responses:
         '200':

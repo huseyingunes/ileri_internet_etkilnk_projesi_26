@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { type Page, type PageQuery, REASON_QUESTIONS, type ReasonKind } from '@etkinlik/shared';
+import {
+  type Instant,
+  type Page,
+  type PageQuery,
+  REASON_QUESTIONS,
+  type ReasonKind,
+} from '@etkinlik/shared';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { toPage } from '../../common/pagination.js';
-import { isoFromDb } from '../../common/time.js';
+import { isoFromDb, toDbDate } from '../../common/time.js';
 import { DatabaseService } from '../../infra/database.js';
 import { AttendanceService } from '../attendance/attendance.service.js';
 import { type EventSummaryView, EventsService } from '../events/events.service.js';
@@ -55,6 +61,24 @@ export class FeedbackService {
     });
     const result = await this.db.reason_prompts.createMany({ data, skipDuplicates: true });
     return result.count;
+  }
+
+  /** Students asked a "why" question about the event. */
+  async promptRecipients(eventId: bigint): Promise<bigint[]> {
+    const rows = await this.db.reason_prompts.findMany({
+      where: { event_id: eventId },
+      select: { student_user_id: true },
+    });
+    return rows.map((r) => r.student_user_id);
+  }
+
+  /** For inferred interests: ratings of 4 or 5 since an instant. */
+  async goodRatingsSince(since: Instant): Promise<{ userId: bigint; eventId: bigint }[]> {
+    const rows = await this.db.ratings.findMany({
+      where: { score: { gte: 4 }, created_at: { gte: toDbDate(since) } },
+      select: { student_user_id: true, event_id: true },
+    });
+    return rows.map((r) => ({ userId: r.student_user_id, eventId: r.event_id }));
   }
 
   async myPrompts(caller: AuthContext, answered: boolean): Promise<{ items: ReasonPromptView[] }> {

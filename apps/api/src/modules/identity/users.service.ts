@@ -144,6 +144,20 @@ export class UsersService {
     return new Map(rows.map((row) => [row.id, toSummary(row)]));
   }
 
+  /** Contact details for notification delivery (active, not anonymized users only). */
+  async contactsOf(
+    ids: readonly bigint[],
+  ): Promise<Map<bigint, { email: string; phone: string | null; displayName: string }>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.db.users.findMany({
+      where: { id: { in: [...new Set(ids)] }, is_active: true, anonymized_at: null },
+      select: { id: true, email: true, phone: true, display_name: true },
+    });
+    return new Map(
+      rows.map((r) => [r.id, { email: r.email, phone: r.phone, displayName: r.display_name }]),
+    );
+  }
+
   /** Ids of active students (leaderboard candidates). */
   async activeStudentIds(): Promise<bigint[]> {
     const rows = await this.db.users.findMany({

@@ -20,6 +20,8 @@ import { AuthGuard } from './modules/identity/auth.guard.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { MediaModule } from './modules/media/media.module.js';
 import { ProfileModule } from './modules/profile/profile.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { MessagingModule } from './infra/messaging.js';
 import { FeedbackModule } from './modules/feedback/feedback.module.js';
 import { ScoringModule } from './modules/scoring/scoring.module.js';
 import { SecurityReportsModule } from './modules/security-reports/security-reports.module.js';
@@ -39,6 +41,8 @@ export class AppModule {
         StorageModule,
         QueueModule,
         ApplicationsQueryModule,
+        MessagingModule,
+        NotificationsModule,
         HealthModule,
         IdentityModule,
         CommunitiesModule,

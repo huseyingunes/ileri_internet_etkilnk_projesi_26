@@ -385,6 +385,59 @@ export class VotingService {
     return views;
   }
 
+  /**
+   * For notifications: results of the last `days` voting days with their
+   * voters. The caller de-duplicates per (date, category, status).
+   */
+  async recentAnnouncements(days: number) {
+    const since = this.today().subtract({ days });
+    const results = await this.db.voting_results.findMany({
+      where: { voting_date: { gte: dbDate(since) } },
+      include: {
+        daily_ballots: { include: { events: { select: { public_id: true, title: true } } } },
+      },
+    });
+    const announcements = [];
+    for (const result of results) {
+      const voters = await this.db.votes.findMany({
+        where: { voting_date: result.voting_date, category: result.category },
+        select: { student_user_id: true },
+      });
+      announcements.push({
+        date: plainDate(result.voting_date).toString(),
+        category: categorySchema.parse(result.category),
+        status: parseResultStatus(result.status),
+        winner:
+          result.daily_ballots === null
+            ? undefined
+            : {
+                id: result.daily_ballots.events.public_id,
+                title: result.daily_ballots.events.title,
+              },
+        voterIds: voters.map((v) => v.student_user_id),
+      });
+    }
+    return announcements;
+  }
+
+  /** For vote invitations: events on the ballot of a day. */
+  async ballotEventIds(date: PlainDate): Promise<bigint[]> {
+    const rows = await this.db.daily_ballots.findMany({
+      where: { voting_date: dbDate(date) },
+      select: { event_id: true },
+    });
+    return rows.map((r) => r.event_id);
+  }
+
+  /** For inferred interests: (student, event voted for) pairs since a date. */
+  async votedEventsSince(since: PlainDate): Promise<{ userId: bigint; eventId: bigint }[]> {
+    const rows = await this.db.votes.findMany({
+      where: { voting_date: { gte: dbDate(since) } },
+      select: { student_user_id: true, daily_ballots: { select: { event_id: true } } },
+    });
+    return rows.map((r) => ({ userId: r.student_user_id, eventId: r.daily_ballots.event_id }));
+  }
+
   /** Closes every finished voting day that has no result yet (catch-up safe, idempotent). */
   async closeDueDays(): Promise<number> {
     const today = this.today();

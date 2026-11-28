@@ -15,6 +15,8 @@ export async function createApp(env: Env): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env), {
     bufferLogs: true,
     bodyParser: false,
+    // Keeps the raw JSON bytes for webhook signature checks (req.rawBody).
+    rawBody: true,
   });
   // First middleware: every request gets a server-generated id before anything can reject it.
   app.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {

@@ -3,6 +3,7 @@ import type { Role } from '@etkinlik/shared';
 import type { ReactNode } from 'react';
 import { fetchMe, loginHref } from './api/session';
 import { AccountMenu } from './components/AccountMenu';
+import { NotificationBell } from './components/NotificationBell';
 import { SystemStatus } from './components/SystemStatus';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventDetailPage } from './pages/EventDetailPage';
@@ -11,6 +12,8 @@ import { MyApplicationsPage } from './pages/MyApplicationsPage';
 import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
 import { AttendancePage } from './pages/AttendancePage';
 import { QrDisplayPage } from './pages/QrDisplayPage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { ReasonPromptsPage } from './pages/ReasonPromptsPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { LeaderboardPage, MyScorePage, ScoreRulesPage } from './pages/ScorePages';
@@ -115,6 +118,8 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
+  if (pathname === '/bildirimler') return <NotificationsPage />;
+  if (pathname === '/profil') return <ProfilePage role={role} />;
   if (pathname === '/sorularim' && role === 'student') return <ReasonPromptsPage />;
   if (pathname === '/puanim' && role === 'student') return <MyScorePage />;
   if (pathname === '/liderlik') return <LeaderboardPage />;
@@ -144,11 +149,22 @@ export function App() {
       </a>
 
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-md px-md py-sm">
+        <div className="mx-auto flex min-h-16 max-w-5xl flex-wrap items-center justify-between gap-md px-md py-sm">
           <Link href="/" className="font-heading text-lg font-bold text-primary">
             Etkinlik Platformu
           </Link>
-          <AccountMenu />
+          <div className="flex items-center gap-sm">
+            {role !== undefined && <NotificationBell />}
+            {role !== undefined && (
+              <Link
+                href="/profil"
+                className="inline-flex min-h-11 items-center rounded-lg px-sm font-semibold text-foreground underline-offset-4 hover:underline"
+              >
+                Profil
+              </Link>
+            )}
+            <AccountMenu />
+          </div>
         </div>
       </header>
       {role !== undefined && <MainNav role={role} pathname={pathname} />}
