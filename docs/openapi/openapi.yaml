@@ -134,8 +134,10 @@ paths:
       operationId: completeLogin
       summary: OIDC dönüşü (GET; form_post kullanılmaz)
       description: >-
-        `state`, `nonce` ve PKCE doğrulanır; girişte yeni oturum kimliği üretilir
-        (oturum sabitleme yok). İlk yönetici, ortam değişkenindeki kurumsal e-postayla ilk girişte atanır.
+        `state` (tarayıcıya `__Host-login-state` çereziyle bağlı ve tek kullanımlık), `nonce` ve
+        PKCE doğrulanır; girişte yeni oturum kimliği üretilir (oturum sabitleme yok). İlk yönetici,
+        ortam değişkenindeki kurumsal e-postayla ilk girişte atanır. Bu adres tarayıcının tam sayfa
+        gezintisi olduğu için hatalar JSON yerine `/?giris=hata` adresine yönlendirilir.
       security: []
       x-roles: [public]
       x-phase: 3
@@ -144,12 +146,12 @@ paths:
         - { name: state, in: query, required: true, schema: { type: string, maxLength: 512 } }
       responses:
         '302':
-          description: Giriş tamamlandı; `returnTo` adresine yönlendirme.
+          description: >-
+            Başarılıysa `returnTo` adresine, oturum çereziyle; doğrulama başarısızsa (`state` uyuşmuyor,
+            süresi dolmuş, hesap devre dışı, ID token geçersiz) oturum açılmadan `/?giris=hata` adresine.
           headers:
             Location: { $ref: './components/headers.yaml#/Location' }
             Set-Cookie: { $ref: './components/headers.yaml#/SetSessionCookie' }
-        '400': { $ref: './components/responses.yaml#/BadRequest' }
-        '403': { $ref: './components/responses.yaml#/Forbidden' }
         '429': { $ref: './components/responses.yaml#/RateLimited' }
   /auth/logout:
     post:
