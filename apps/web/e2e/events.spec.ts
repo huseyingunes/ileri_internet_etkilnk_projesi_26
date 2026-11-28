@@ -135,3 +135,41 @@ test('shows the review queue only to advisors and admins', async ({ page }) => {
   await page.goto('/etkinlikler');
   await expect(page.getByRole('link', { name: 'Onaylar' })).toHaveCount(0);
 });
+
+test('lets a student apply to a calendar event and shows the waiting list', async ({ page }) => {
+  await mockApi(page, 'student');
+  await page.route(`**/api/v1/events/${event.id}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...detail,
+        status: 'scheduled',
+        capacity: 1,
+        confirmedCount: 1,
+        waitlistCount: 0,
+        viewer: { canEdit: false, canReview: false, canManagePhotos: false },
+      }),
+    }),
+  );
+  await page.route(`**/api/v1/events/${event.id}/applications`, (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'a1',
+        eventId: event.id,
+        status: 'waitlisted',
+        waitlistPosition: 1,
+        appliedAt: '2026-11-28T10:00:00Z',
+      }),
+    }),
+  );
+  await page.goto(`/etkinlikler/${event.id}`);
+  await expect(page.getByText('kontenjan dolu')).toBeVisible();
+  await page.getByRole('button', { name: 'Bekleme listesine katıl' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'bekleme listesinde 1. sıradasınız' }),
+  ).toBeVisible();
+  await expectAccessible(page);
+});

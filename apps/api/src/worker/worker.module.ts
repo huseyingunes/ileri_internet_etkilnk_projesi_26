@@ -7,6 +7,7 @@ import { DatabaseModule } from '../infra/database.js';
 import { JobRegistryModule, QueueModule } from '../infra/queue.js';
 import { RedisModule } from '../infra/redis.js';
 import { StorageModule } from '../infra/storage.js';
+import { ApplicationsQueryModule } from '../modules/applications/applications.query.js';
 import { IdentityModule } from '../modules/identity/identity.module.js';
 import { MediaProcessor } from '../modules/media/media.processor.js';
 import { SettingsModule } from '../modules/settings/settings.module.js';
@@ -31,6 +32,7 @@ export class WorkerModule {
         JobRegistryModule,
         HealthModule,
         IdentityModule,
+        ApplicationsQueryModule,
         SettingsModule,
         VotingModule,
       ],

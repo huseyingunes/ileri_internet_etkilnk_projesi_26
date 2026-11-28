@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CATEGORY_LABELS, EVENT_STATUS_LABELS, formatIstanbul } from '@etkinlik/shared';
+import { CATEGORY_LABELS, EVENT_STATUS_LABELS, formatIstanbul, type Role } from '@etkinlik/shared';
 import { type SyntheticEvent, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
 import { cancelEvent, getEvent, getMedia, reviewEvent, setCover, uploadImage } from '../api/events';
+import { ApplyPanel } from '../components/ApplyPanel';
 import { Badge, Button, Card, Picture, StatusMessage, TextArea, TextField } from '../ui';
 
 function ReasonDialog({
@@ -130,7 +131,7 @@ function CoverUpload({ eventId }: { eventId: string }) {
   );
 }
 
-export function EventDetailPage({ id }: { id: string }) {
+export function EventDetailPage({ id, role }: { id: string; role: Role }) {
   const client = useQueryClient();
   const event = useQuery({
     queryKey: ['event', id],
@@ -256,6 +257,7 @@ export function EventDetailPage({ id }: { id: string }) {
         )}
       </section>
 
+      {role === 'student' && data.status === 'scheduled' && <ApplyPanel event={data} />}
       {(data.viewer.canReview || data.viewer.canManagePhotos) && (
         <Card className="flex flex-wrap gap-sm">
           {data.viewer.canReview && (

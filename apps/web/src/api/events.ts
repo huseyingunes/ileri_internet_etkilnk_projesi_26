@@ -19,6 +19,15 @@ export const mediaSchema = z.object({
 });
 export type Media = z.infer<typeof mediaSchema>;
 
+export const applicationSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  status: z.enum(['confirmed', 'waitlisted', 'cancelled']),
+  waitlistPosition: z.number().optional(),
+  appliedAt: z.string(),
+});
+export type Application = z.infer<typeof applicationSchema>;
+
 const userSummarySchema = z.object({ id: z.string(), displayName: z.string(), role: roleSchema });
 
 export const eventSummarySchema = z.object({
@@ -45,7 +54,14 @@ export const eventSchema = eventSummarySchema.extend({
   rejectionReason: z.string().optional(),
   cancellationReason: z.string().optional(),
   createdAt: z.string(),
-  viewer: z.object({ canEdit: z.boolean(), canReview: z.boolean(), canManagePhotos: z.boolean() }),
+  confirmedCount: z.number().default(0),
+  waitlistCount: z.number().default(0),
+  viewer: z.object({
+    canEdit: z.boolean(),
+    canReview: z.boolean(),
+    canManagePhotos: z.boolean(),
+    application: applicationSchema.optional(),
+  }),
 });
 export type EventDetail = z.infer<typeof eventSchema>;
 
@@ -86,3 +102,18 @@ export function uploadImage(file: File, alt: string) {
 }
 
 export const getMedia = (id: string) => api(mediaSchema, `/media/${encodeURIComponent(id)}`);
+
+export const applyToEvent = (id: string) =>
+  api(applicationSchema, `/events/${encodeURIComponent(id)}/applications`, { method: 'POST' });
+
+export const cancelApplication = (id: string) =>
+  api(z.undefined(), `/applications/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
+export const myApplications = () =>
+  api(
+    z.object({
+      items: z.array(applicationSchema.extend({ event: eventSummarySchema })),
+      page: z.object({ nextCursor: z.string().nullable() }),
+    }),
+    '/me/applications?limit=50',
+  );

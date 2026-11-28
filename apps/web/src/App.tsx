@@ -7,6 +7,7 @@ import { SystemStatus } from './components/SystemStatus';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { EventsPage } from './pages/EventsPage';
+import { MyApplicationsPage } from './pages/MyApplicationsPage';
 import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
 import { ResultsPage } from './pages/ResultsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { href: '/oylama', label: 'Oylama', roles: ['student', 'advisor', 'admin'] },
   { href: '/etkinlikler', label: 'Etkinlikler', roles: ['student', 'advisor', 'admin'] },
   { href: '/etkinlikler/yeni', label: 'Etkinlik öner', roles: ['student', 'advisor', 'admin'] },
+  { href: '/basvurularim', label: 'Başvurularım', roles: ['student'] },
   { href: '/onaylar', label: 'Onaylar', roles: ['advisor', 'admin'] },
   { href: '/gunluk-secim', label: 'Günlük seçim', roles: ['admin'] },
   { href: '/ayarlar', label: 'Ayarlar', roles: ['admin'] },
@@ -101,11 +103,13 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/etkinlikler/yeni') return <EventCreatePage role={role} />;
   if (pathname === '/onaylar' && role !== 'student') return <ReviewsPage />;
   if (pathname === '/oylama') return <VotingPage role={role} />;
+  if (pathname === '/basvurularim' && role === 'student') return <MyApplicationsPage />;
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
   const detail = matchPath('/etkinlikler/:id', pathname);
-  if (detail?.['id'] !== undefined) return <EventDetailPage key={detail['id']} id={detail['id']} />;
+  if (detail?.['id'] !== undefined)
+    return <EventDetailPage key={detail['id']} id={detail['id']} role={role} />;
   if (pathname === '/') return <Home signedIn />;
   return <StatusMessage tone="error">Sayfa bulunamadı.</StatusMessage>;
 }

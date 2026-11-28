@@ -97,6 +97,7 @@ test.describe('application shell', () => {
   test('takes colours and fonts from design-system tokens', async ({ page }) => {
     await mockHealth(page, 200);
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     const styles = await page.evaluate(() => {
       const body = getComputedStyle(document.body);
