@@ -1,0 +1,56 @@
+{
+	# Admin API is not exposed outside the container.
+	admin localhost:2019
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+# Single origin: static PWA + /api reverse proxy. CORS is never enabled.
+# SITE_ADDRESS is the host of APP_ORIGIN (etkinlik.localhost locally, haber10da.net in production).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		# HSTS starts short and is raised once the deployment is stable (see docs/isletim-kilavuzu.md).
+		Strict-Transport-Security "max-age=300"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin-allow-popups"
+		Cross-Origin-Resource-Policy "same-origin"
+		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=(), usb=()"
+		# Phase 0 baseline. Phase 3 adds hashes for any inline code, Trusted Types (report-only first) and report endpoints.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
+		-Server
+		-Via
+	}
+
+	handle /api/* {
+		reverse_proxy {$API_UPSTREAM} {
+			# The API generates request ids itself; never forward a client-supplied one.
+			header_up -X-Request-Id
+			# Liveness of the upstream is checked by Compose; Caddy only retries briefly on deploy.
+			lb_try_duration 5s
+		}
+	}
+
+	handle {
+		root * /srv
+
+		# Version-stamped build output is immutable.
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# The shell, service worker and manifest are always revalidated (network first).
+		@shell path / /index.html /sw.js /registerSW.js /manifest.webmanifest
+		header @shell Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

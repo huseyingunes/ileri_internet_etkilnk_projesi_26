@@ -1,0 +1,15 @@
+rules:
+  - id: etkinlik-no-innerhtml
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      User text is stored and shown as plain text. innerHTML, outerHTML,
+      insertAdjacentHTML, document.write and dangerouslySetInnerHTML are forbidden.
+    pattern-either:
+      - pattern: $EL.innerHTML = $X
+      - pattern: $EL.outerHTML = $X
+      - pattern: $EL.insertAdjacentHTML(...)
+      - pattern: document.write(...)
+      - pattern: document.writeln(...)
+      - pattern: <$TAG dangerouslySetInnerHTML={...} />
+      - pattern: <$TAG dangerouslySetInnerHTML={...}>...</$TAG>

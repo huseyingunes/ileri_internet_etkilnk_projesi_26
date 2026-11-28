@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+.devcontainer
+docs/kaynak
+design-system/**/*.md

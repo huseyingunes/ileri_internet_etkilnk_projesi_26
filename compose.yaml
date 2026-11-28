@@ -1,0 +1,163 @@
+# Production-shaped stack. Every secret is required (`:?`): Compose refuses to
+# start if one is missing, and no secret has a default value.
+name: etkinlik
+
+x-app-env: &app-env
+  NODE_ENV: ${NODE_ENV:-production}
+  APP_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN is required}
+  DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?}
+  # Redis is reachable only on the internal `data` network of a single host; TLS adds nothing there.
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379 # nosemgrep: trailofbits.generic.redis-unencrypted-transport.redis-unencrypted-transport
+  API_DB_POOL_SIZE: ${API_DB_POOL_SIZE:-10}
+  WORKER_DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-5}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+
+services:
+  caddy:
+    build: { context: ., dockerfile: deploy/caddy/Dockerfile }
+    image: etkinlik/caddy:local
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS is required}
+      API_UPSTREAM: api:3000
+    # Caddy is the public entry point; 80/443 must listen on all interfaces.
+    ports:
+      - '80:80' # nosemgrep: trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
+      - '443:443' # nosemgrep: trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
+      - '443:443/udp' # nosemgrep: trailofbits.yaml.docker-compose.port-all-interfaces.port-all-interfaces
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [edge]
+
+  api:
+    <<: *hardening
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    image: etkinlik/api:local
+    environment:
+      <<: *app-env
+      API_PORT: 3000
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/v1/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 30s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [edge, data]
+
+  worker:
+    <<: *hardening
+    image: etkinlik/api:local
+    command: ['node', '--enable-source-maps', 'dist/worker.js']
+    environment:
+      <<: *app-env
+      WORKER_HEALTH_PORT: 3001
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 60s
+    depends_on:
+      api: { condition: service_started }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [edge, data]
+
+  postgres:
+    image: postgres:18.7-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+
+  redis:
+    image: redis:8.12.0-trixie
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    command:
+      [
+        'sh',
+        '-c',
+        'exec redis-server --appendonly yes --protected-mode yes --requirepass "$$REDIS_PASSWORD"',
+      ]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+
+  garage:
+    image: dxflrs/garage:v2.6.0
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?GARAGE_RPC_SECRET is required}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?GARAGE_ADMIN_TOKEN is required}
+    volumes:
+      - ./deploy/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+
+networks:
+  # Caddy, API and worker; has egress for OIDC, Sentry, WhatsApp, e-mail.
+  edge: {}
+  # Datastores only; no route to the outside world.
+  data:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  garage_meta:
+  garage_data:

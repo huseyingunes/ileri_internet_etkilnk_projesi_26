@@ -1,0 +1,127 @@
+openapi: 3.1.1
+info:
+  title: Etkinlik Platformu API
+  version: 0.0.0
+  description: >-
+    Etkinlik Yönetimi ve Öğrenci Katılım Platformu REST API sözleşmesi.
+    Aşama 0 yalnızca sağlık uç noktalarını içerir; tam sözleşme Aşama 2'de yazılır
+    ve koddan önce onaylanır.
+servers:
+  - url: https://haber10da.net/api/v1
+    description: Üretim
+  - url: https://etkinlik.localhost/api/v1
+    description: Yerel geliştirme
+tags:
+  - name: health
+    description: Liveness ve readiness
+paths:
+  /health/live:
+    get:
+      tags: [health]
+      operationId: getLiveness
+      summary: Süreç ayakta mı?
+      description: Bağımlılıklara dokunmaz. Kimlik doğrulama gerektirmez.
+      security: []
+      responses:
+        '200':
+          description: Süreç yanıt veriyor.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+              example: { status: ok, checks: {} }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: getReadiness
+      summary: Bağımlılıklar hazır mı?
+      description: PostgreSQL ve Redis'e zaman aşımlı yoklama yapar. Kimlik doğrulama gerektirmez.
+      security: []
+      responses:
+        '200':
+          description: Tüm bağımlılıklar hazır.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+              example: { status: ok, checks: { database: ok, redis: ok } }
+        '503':
+          description: En az bir bağımlılık hazır değil.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+              example: { status: error, checks: { database: ok, redis: error } }
+components:
+  headers:
+    RequestId:
+      description: Her yanıtta dönen UUIDv7 istek kimliği; loglarda ve kuyruk işlerinde taşınır.
+      schema: { type: string, format: uuid }
+    NoStore:
+      schema: { type: string, const: no-store }
+    RetryAfter:
+      description: 429 yanıtlarında, saniye cinsinden.
+      schema: { type: integer, minimum: 1 }
+  schemas:
+    HealthStatus:
+      type: string
+      enum: [ok, error]
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, checks]
+      properties:
+        status: { $ref: '#/components/schemas/HealthStatus' }
+        checks:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/HealthStatus' }
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+    ErrorBody:
+      description: Tüm uç noktaların tek hata gövdesi. İç hata ayrıntısı hiçbir zaman dönmez.
+      type: object
+      additionalProperties: false
+      required: [code, message, fieldErrors, requestId]
+      properties:
+        code:
+          type: string
+          examples:
+            [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, RATE_LIMITED, INTERNAL_ERROR]
+        message: { type: string, description: Kullanıcıya gösterilebilir Türkçe mesaj }
+        fieldErrors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
+        requestId: { type: string, minLength: 1 }
+  responses:
+    Unauthenticated:
+      description: Oturum yok ya da geçersiz.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    Forbidden:
+      description: Oturum var ama yetki yok.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    ValidationFailed:
+      description: Girdi şemaya uymuyor.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }
+    RateLimited:
+      description: Hız sınırı aşıldı.
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorBody' }

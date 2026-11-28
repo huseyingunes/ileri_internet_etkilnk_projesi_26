@@ -1,0 +1,25 @@
+rules:
+  - id: etkinlik-route-without-access-decision
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Every route handler must state its access rule explicitly: @Public() for
+      unauthenticated routes, or @Roles(...) once role checks exist (Phase 3).
+      Authorization is deny-by-default; an undecorated route is a review smell.
+    patterns:
+      - pattern-inside: |
+          @Controller(...)
+          class $C { ... }
+      - pattern-either:
+          - pattern: |
+              @$VERB(...)
+              $M(...) { ... }
+      - metavariable-regex:
+          metavariable: $VERB
+          regex: ^(Get|Post|Put|Patch|Delete|Head|Options|All)$
+      - pattern-not: |
+          @Public()
+          $M(...) { ... }
+      - pattern-not: |
+          @Roles(...)
+          $M(...) { ... }

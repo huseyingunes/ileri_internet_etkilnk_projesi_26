@@ -1,0 +1,11 @@
+// Data model is defined in Phase 1. Only the generator and datasource exist now.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
