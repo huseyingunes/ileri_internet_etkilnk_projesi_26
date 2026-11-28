@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CATEGORY_LABELS, EVENT_STATUS_LABELS, formatIstanbul, type Role } from '@etkinlik/shared';
 import { type SyntheticEvent, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
-import { cancelEvent, getEvent, getMedia, reviewEvent, setCover, uploadImage } from '../api/events';
+import { cancelEvent, getEvent, reviewEvent, setCover, uploadImageAndWait } from '../api/events';
 import { ApplyPanel } from '../components/ApplyPanel';
+import { ArchivePanel } from '../components/ArchivePanel';
 import { ExcuseForm, ExcuseReviewList } from '../components/ExcusePanels';
 import { Link } from '../router';
 import {
@@ -80,13 +81,7 @@ function CoverUpload({ eventId }: { eventId: string }) {
     mutationFn: async () => {
       const file = fileRef.current?.files?.[0];
       if (file === undefined) throw new ApiError(422, 'VALIDATION_FAILED', 'Bir görsel seçin.', []);
-      const media = await uploadImage(file, alt);
-      // Variants are derived in the background; wait briefly so the cover can show.
-      for (let i = 0; i < 20; i += 1) {
-        const current = await getMedia(media.id);
-        if (current.status !== 'pending') break;
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      const media = await uploadImageAndWait(file, alt);
       return await setCover(eventId, media.id);
     },
     onSuccess: async () => {
@@ -273,6 +268,9 @@ export function EventDetailPage({ id, role }: { id: string; role: Role }) {
         (data.status === 'scheduled' || data.status === 'completed') &&
         data.viewer.application?.status === 'confirmed' && <ExcuseForm eventId={data.id} />}
       {data.viewer.canManagePhotos && <ExcuseReviewList eventId={data.id} />}
+      {data.status === 'completed' && (
+        <ArchivePanel eventId={data.id} canManage={data.viewer.canManagePhotos} />
+      )}
       {(data.viewer.canReview || data.viewer.canManagePhotos) && (
         <Card className="flex flex-wrap gap-sm">
           {data.viewer.canReview && (
