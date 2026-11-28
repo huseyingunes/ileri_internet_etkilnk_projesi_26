@@ -1030,7 +1030,7 @@ AnalyticsOverview:
     byCategory: { type: array, maxItems: 3, items: { $ref: '#/CategoryCount' } }
     nonAttendanceReasons:
       type: array
-      description: Katılmama nedenleri dağılımı. Yapay zekâ sınıflandırması gelene kadarki üretim yöntemi Aşama 11'de kararlaştırılacak.
+      description: Katılmama nedenleri dağılımı; anahtar kelime sınıflandırıcıyla üretilir (ADR 0018).
       items:
         type: object
         additionalProperties: false
