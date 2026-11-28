@@ -58,6 +58,26 @@ export const envSchema = z
       .default('etkinlik-media'),
     S3_ACCESS_KEY_ID: z.string().min(1).max(256).optional(),
     S3_SECRET_ACCESS_KEY: z.string().min(1).max(512).optional(),
+    // E-mail (SMTP; Mailpit in development). `memory` is for tests only.
+    EMAIL_DRIVER: z.enum(['smtp', 'memory']).default('smtp'),
+    SMTP_URL: z
+      .url()
+      .refine((value) => /^smtps?:\/\//.test(value), { error: 'must be smtp:// or smtps://' })
+      .optional(),
+    EMAIL_FROM: z.string().min(3).max(200),
+    // WhatsApp Cloud API (ADR 0017). Disabled unless explicitly configured.
+    WHATSAPP_DRIVER: z.enum(['cloud', 'memory', 'disabled']).default('disabled'),
+    WHATSAPP_API_VERSION: z
+      .string()
+      .regex(/^v[0-9]{1,3}\.[0-9]$/)
+      .default('v23.0'),
+    WHATSAPP_PHONE_NUMBER_ID: z
+      .string()
+      .regex(/^[0-9]{5,30}$/)
+      .optional(),
+    WHATSAPP_ACCESS_TOKEN: z.string().min(16).max(1024).optional(),
+    WHATSAPP_APP_SECRET: z.string().min(16).max(256).optional(),
+    WHATSAPP_VERIFY_TOKEN: z.string().min(16).max(256).optional(),
   })
   .superRefine((env, context) => {
     if (env.NODE_ENV === 'production' && env.OIDC_ALLOW_INSECURE_HTTP) {
@@ -84,6 +104,43 @@ export const envSchema = z
             code: 'custom',
             path: [key],
             message: 'is required when STORAGE_DRIVER=s3',
+          });
+        }
+      }
+    }
+    if (env.EMAIL_DRIVER === 'memory' && env.NODE_ENV === 'production') {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMAIL_DRIVER'],
+        message: 'must be smtp in production',
+      });
+    }
+    if (env.EMAIL_DRIVER === 'smtp' && env.SMTP_URL === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_URL'],
+        message: 'is required when EMAIL_DRIVER=smtp',
+      });
+    }
+    if (env.WHATSAPP_DRIVER === 'memory' && env.NODE_ENV === 'production') {
+      context.addIssue({
+        code: 'custom',
+        path: ['WHATSAPP_DRIVER'],
+        message: 'must be cloud or disabled in production',
+      });
+    }
+    if (env.WHATSAPP_DRIVER !== 'disabled') {
+      for (const key of [
+        'WHATSAPP_PHONE_NUMBER_ID',
+        'WHATSAPP_ACCESS_TOKEN',
+        'WHATSAPP_APP_SECRET',
+        'WHATSAPP_VERIFY_TOKEN',
+      ] as const) {
+        if (env[key] === undefined) {
+          context.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'is required unless WHATSAPP_DRIVER=disabled',
           });
         }
       }
