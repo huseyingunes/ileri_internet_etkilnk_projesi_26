@@ -9,6 +9,8 @@ import { EventDetailPage } from './pages/EventDetailPage';
 import { EventsPage } from './pages/EventsPage';
 import { MyApplicationsPage } from './pages/MyApplicationsPage';
 import { DailySelectionPage, SettingsPage } from './pages/AdminVotingPages';
+import { AttendancePage } from './pages/AttendancePage';
+import { QrDisplayPage } from './pages/QrDisplayPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { VotingPage } from './pages/VotingPage';
@@ -107,6 +109,9 @@ function Routes({ role }: { role: Role }): ReactNode {
   if (pathname === '/sonuclar') return <ResultsPage role={role} />;
   if (pathname === '/gunluk-secim' && role === 'admin') return <DailySelectionPage />;
   if (pathname === '/ayarlar' && role === 'admin') return <SettingsPage />;
+  if (pathname === '/katilim') return <AttendancePage role={role} />;
+  const qr = matchPath('/etkinlikler/:id/qr', pathname);
+  if (qr?.['id'] !== undefined && role !== 'student') return <QrDisplayPage eventId={qr['id']} />;
   const detail = matchPath('/etkinlikler/:id', pathname);
   if (detail?.['id'] !== undefined)
     return <EventDetailPage key={detail['id']} id={detail['id']} role={role} />;
