@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { CATEGORIES, CATEGORY_LABELS, EVENT_STATUS_LABELS, formatIstanbul } from '@etkinlik/shared';
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  EVENT_STATUS_LABELS,
+  formatIstanbul,
+  nowInstant,
+} from '@etkinlik/shared';
 import { type EventSummary, listEvents } from '../api/events';
 import { Link, navigate, useLocation } from '../router';
 import { Badge, Card, PageTitle, Picture, SelectField, StatusMessage } from '../ui';
@@ -61,6 +67,8 @@ export function EventsPage() {
 
   const query = new URLSearchParams({ limit: '30' });
   if (config.status !== undefined) query.set('status', config.status);
+  // The calendar shows upcoming events only.
+  if (view === 'takvim') query.set('from', nowInstant().toString());
   if (config.mine) query.set('mine', 'true');
   if (category !== '') query.set('category', category);
 
