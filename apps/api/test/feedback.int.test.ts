@@ -94,7 +94,10 @@ describe('ratings and the archive page', () => {
 
     const report = await call(t, advisor, 'GET', `${path}/ratings`);
     expect(report.body).toMatchObject({ averageRating: 4, ratingCount: 1 });
-    expect(JSON.stringify(report.body)).not.toContain(a.userId.toString());
+    // Anonymous: only score, comment and time per rating.
+    for (const item of report.body['items'] as Record<string, unknown>[]) {
+      expect(Object.keys(item).sort()).toEqual(['comment', 'createdAt', 'score']);
+    }
     expect((await call(t, a, 'GET', `${path}/ratings`)).status).toBe(403);
     const outsider = await t.loginAs('advisor', 1);
     expect((await call(t, outsider, 'GET', `${path}/ratings`)).status).toBe(403);
