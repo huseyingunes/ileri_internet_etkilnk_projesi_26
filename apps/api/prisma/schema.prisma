@@ -1,11 +1,570 @@
-// Data model is defined in Phase 1. Only the generator and datasource exist now.
-
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+  moduleFormat    = "esm"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model app_settings {
+  key                String   @id
+  value              Json
+  updated_by_user_id BigInt?
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  users              users?   @relation(fields: [updated_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([updated_by_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model applications {
+  id                BigInt    @id @default(autoincrement())
+  public_id         String    @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  event_id          BigInt
+  student_user_id   BigInt
+  status            String
+  waitlist_position Int?
+  applied_at        DateTime  @default(now()) @db.Timestamptz(6)
+  confirmed_at      DateTime? @db.Timestamptz(6)
+  cancelled_at      DateTime? @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+  events            events    @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users     @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_user_id, event_id], map: "applications_one_per_event")
+  @@unique([event_id, waitlist_position], map: "applications_waitlist_position_idx", where: raw("(status = 'waitlisted'::text)"))
+  @@index([event_id], map: "applications_confirmed_idx", where: raw("(status = 'confirmed'::text)"))
+  @@index([event_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendance_scans {
+  id               BigInt   @id @default(autoincrement())
+  event_id         BigInt
+  student_user_id  BigInt
+  kind             String
+  token_id         String
+  scanned_at       DateTime @default(now()) @db.Timestamptz(6)
+  distance_m       Decimal? @db.Decimal(9, 1)
+  within_radius    Boolean
+  accepted         Boolean
+  rejection_reason String?
+  events           events   @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users            users    @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_user_id, token_id], map: "attendance_scans_idempotent")
+  @@index([event_id, student_user_id, scanned_at], map: "attendance_scans_event_student_idx")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attendances {
+  id                  BigInt    @id @default(autoincrement())
+  event_id            BigInt
+  student_user_id     BigInt
+  status              String
+  first_valid_scan_at DateTime? @db.Timestamptz(6)
+  last_valid_scan_at  DateTime? @db.Timestamptz(6)
+  present_seconds     Int       @default(0)
+  finalized_at        DateTime  @default(now()) @db.Timestamptz(6)
+  events              events    @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users     @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, student_user_id], map: "attendances_unique")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model audit_log {
+  id            BigInt   @id @default(autoincrement())
+  actor_user_id BigInt?
+  action        String
+  entity_type   String
+  entity_id     BigInt?
+  details       Json     @default("{}")
+  request_id    String?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users?   @relation(fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([actor_user_id])
+  @@index([created_at])
+  @@index([entity_type, entity_id], map: "audit_log_entity_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model communities {
+  id                 BigInt               @id @default(autoincrement())
+  public_id          String               @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  name               String               @unique
+  description        String               @default("")
+  archived_at        DateTime?            @db.Timestamptz(6)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  community_advisors community_advisors[]
+  community_members  community_members[]
+  events             events[]
+}
+
+model community_advisors {
+  community_id    BigInt
+  advisor_user_id BigInt
+  assigned_at     DateTime    @default(now()) @db.Timestamptz(6)
+  users           users       @relation(fields: [advisor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  communities     communities @relation(fields: [community_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([community_id, advisor_user_id])
+  @@index([advisor_user_id])
+}
+
+model community_members {
+  community_id BigInt
+  user_id      BigInt
+  joined_at    DateTime    @default(now()) @db.Timestamptz(6)
+  communities  communities @relation(fields: [community_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users        users       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([community_id, user_id])
+  @@index([user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model consents {
+  id           BigInt    @id @default(autoincrement())
+  user_id      BigInt
+  kind         String
+  text_version String
+  granted_at   DateTime  @default(now()) @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, kind], map: "consents_active_idx", where: raw("(revoked_at IS NULL)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model daily_ballots {
+  id                  BigInt           @id @default(autoincrement())
+  voting_date         DateTime         @db.Date
+  category            String
+  event_id            BigInt
+  selected_by_user_id BigInt
+  final_vote_count    Int?
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  events              events           @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users            @relation(fields: [selected_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  votes               votes[]
+  voting_results      voting_results[]
+
+  @@unique([voting_date, event_id], map: "daily_ballots_event_once_per_day")
+  @@unique([id, voting_date, category], map: "daily_ballots_id_date_category")
+  @@unique([voting_date, category, event_id], map: "daily_ballots_unique")
+  @@index([event_id])
+  @@index([selected_by_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model data_requests {
+  id              BigInt         @id @default(autoincrement())
+  public_id       String         @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  user_id         BigInt
+  kind            String
+  status          String         @default("pending")
+  result_media_id BigInt?
+  requested_at    DateTime       @default(now()) @db.Timestamptz(6)
+  completed_at    DateTime?      @db.Timestamptz(6)
+  media_objects   media_objects? @relation(fields: [result_media_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, kind], map: "data_requests_open_idx", where: raw("(status = ANY (ARRAY['pending'::text, 'processing'::text]))"))
+  @@index([result_media_id])
+  @@index([user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model event_photos {
+  event_id      BigInt
+  media_id      BigInt
+  sort_order    Int           @default(0)
+  events        events        @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  media_objects media_objects @relation(fields: [media_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, media_id])
+  @@index([media_id])
+}
+
+model event_tags {
+  event_id BigInt
+  tag_id   BigInt
+  events   events @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tags     tags   @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, tag_id])
+  @@index([tag_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model events {
+  id                                      BigInt             @id @default(autoincrement())
+  public_id                               String             @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  title                                   String
+  description                             String
+  category                                String
+  status                                  String             @default("pending_approval")
+  organizer_user_id                       BigInt?
+  organizer_community_id                  BigInt?
+  created_by_user_id                      BigInt
+  advisor_user_id                         BigInt?
+  starts_at                               DateTime           @db.Timestamptz(6)
+  ends_at                                 DateTime           @db.Timestamptz(6)
+  location_name                           String
+  latitude                                Float
+  longitude                               Float
+  attendance_radius_m                     Int
+  qr_refresh_seconds                      Int
+  capacity                                Int
+  cover_media_id                          BigInt?
+  participation_requirements              String             @default("")
+  approved_by_user_id                     BigInt?
+  approved_at                             DateTime?          @db.Timestamptz(6)
+  rejection_reason                        String?
+  cancelled_at                            DateTime?          @db.Timestamptz(6)
+  cancellation_reason                     String?
+  created_at                              DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime           @default(now()) @db.Timestamptz(6)
+  applications                            applications[]
+  attendance_scans                        attendance_scans[]
+  attendances                             attendances[]
+  daily_ballots                           daily_ballots[]
+  event_photos                            event_photos[]
+  event_tags                              event_tags[]
+  users_events_advisor_user_idTousers     users?             @relation("events_advisor_user_idTousers", fields: [advisor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_events_approved_by_user_idTousers users?             @relation("events_approved_by_user_idTousers", fields: [approved_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  media_objects                           media_objects?     @relation(fields: [cover_media_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_events_created_by_user_idTousers  users              @relation("events_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  communities                             communities?       @relation(fields: [organizer_community_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_events_organizer_user_idTousers   users?             @relation("events_organizer_user_idTousers", fields: [organizer_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  excuses                                 excuses[]
+  ratings                                 ratings[]
+  reason_prompts                          reason_prompts[]
+  score_ledger                            score_ledger[]
+
+  @@index([advisor_user_id])
+  @@index([approved_by_user_id])
+  @@index([cover_media_id])
+  @@index([created_by_user_id])
+  @@index([organizer_community_id])
+  @@index([organizer_user_id])
+  @@index([starts_at])
+  @@index([status, category])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model excuses {
+  id                                       BigInt    @id @default(autoincrement())
+  event_id                                 BigInt
+  student_user_id                          BigInt
+  reason                                   String
+  status                                   String    @default("pending")
+  reviewed_by_user_id                      BigInt?
+  reviewed_at                              DateTime? @db.Timestamptz(6)
+  created_at                               DateTime  @default(now()) @db.Timestamptz(6)
+  events                                   events    @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_excuses_reviewed_by_user_idTousers users?    @relation("excuses_reviewed_by_user_idTousers", fields: [reviewed_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_excuses_student_user_idTousers     users     @relation("excuses_student_user_idTousers", fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, student_user_id], map: "excuses_unique")
+  @@index([reviewed_by_user_id])
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leaderboard_snapshots {
+  season_id       BigInt
+  rank            Int
+  student_user_id BigInt
+  total_points    Int
+  attended_count  Int
+  captured_at     DateTime @default(now()) @db.Timestamptz(6)
+  seasons         seasons  @relation(fields: [season_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users    @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([season_id, rank])
+  @@unique([season_id, student_user_id], map: "leaderboard_snapshots_student_once")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model media_objects {
+  id                  BigInt          @id @default(autoincrement())
+  public_id           String          @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  storage_key         String          @unique
+  content_type        String
+  byte_size           BigInt
+  width               Int?
+  height              Int?
+  status              String          @default("pending")
+  variants            Json            @default("[]")
+  uploaded_by_user_id BigInt
+  created_at          DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime        @default(now()) @db.Timestamptz(6)
+  data_requests       data_requests[]
+  event_photos        event_photos[]
+  events              events[]
+  users               users           @relation(fields: [uploaded_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([uploaded_by_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_deliveries {
+  id                  BigInt        @id @default(autoincrement())
+  notification_id     BigInt
+  channel             String
+  status              String        @default("queued")
+  provider_message_id String?
+  attempt_count       Int           @default(0)
+  last_error          String?
+  created_at          DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  notifications       notifications @relation(fields: [notification_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([channel, provider_message_id], map: "notification_deliveries_provider_message_idx", where: raw("(provider_message_id IS NOT NULL)"))
+  @@unique([notification_id, channel], map: "notification_deliveries_unique")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_preferences {
+  user_id    BigInt
+  channel    String
+  type       String
+  enabled    Boolean
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, channel, type])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                      BigInt                    @id @default(autoincrement())
+  public_id               String                    @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  user_id                 BigInt
+  type                    String
+  title                   String
+  body                    String
+  data                    Json                      @default("{}")
+  read_at                 DateTime?                 @db.Timestamptz(6)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  notification_deliveries notification_deliveries[]
+  users                   users                     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id], map: "notifications_unread_idx", where: raw("(read_at IS NULL)"))
+  @@index([user_id, created_at(sort: Desc)], map: "notifications_user_created_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ratings {
+  id              BigInt   @id @default(autoincrement())
+  event_id        BigInt
+  student_user_id BigInt
+  score           Int      @db.SmallInt
+  comment         String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  events          events   @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users    @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, student_user_id], map: "ratings_unique")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reason_answers {
+  id               BigInt         @id @default(autoincrement())
+  reason_prompt_id BigInt         @unique
+  answer           String
+  answered_at      DateTime       @default(now()) @db.Timestamptz(6)
+  classification   String?
+  classified_at    DateTime?      @db.Timestamptz(6)
+  reason_prompts   reason_prompts @relation(fields: [reason_prompt_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reason_prompts {
+  id              BigInt          @id @default(autoincrement())
+  event_id        BigInt
+  student_user_id BigInt
+  kind            String
+  sent_at         DateTime        @default(now()) @db.Timestamptz(6)
+  reason_answers  reason_answers?
+  events          events          @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users           @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([event_id, student_user_id], map: "reason_prompts_unique")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model score_ledger {
+  id              BigInt       @id @default(autoincrement())
+  season_id       BigInt
+  student_user_id BigInt
+  event_id        BigInt
+  score_rule_id   BigInt?
+  rule_code       String
+  points          Int
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  events          events       @relation(fields: [event_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  score_rules     score_rules? @relation(fields: [score_rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  seasons         seasons      @relation(fields: [season_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users        @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_user_id, event_id, rule_code], map: "score_ledger_unique")
+  @@index([event_id])
+  @@index([score_rule_id])
+  @@index([season_id, student_user_id], map: "score_ledger_season_student_idx")
+  @@index([student_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model score_rules {
+  id                 BigInt         @id @default(autoincrement())
+  code               String         @unique(map: "score_rules_current_idx", where: raw("(valid_to IS NULL)"))
+  points             Int
+  valid_from         DateTime       @default(now()) @db.Timestamptz(6)
+  valid_to           DateTime?      @db.Timestamptz(6)
+  created_by_user_id BigInt?
+  score_ledger       score_ledger[]
+  users              users?         @relation(fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_by_user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains exclusion constraints and requires additional setup for migrations. Visit https://pris.ly/d/exclusion-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model seasons {
+  id                    BigInt                  @id @default(autoincrement())
+  name                  String                  @unique
+  starts_on             DateTime                @db.Date
+  ends_on               DateTime                @db.Date
+  starting_points       Int                     @default(1500)
+  status                String                  @default("active")
+  closed_at             DateTime?               @db.Timestamptz(6)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  leaderboard_snapshots leaderboard_snapshots[]
+  score_ledger          score_ledger[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tags {
+  id             BigInt           @id @default(autoincrement())
+  name           String           @unique
+  event_tags     event_tags[]
+  user_interests user_interests[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_interests {
+  user_id    BigInt
+  tag_id     BigInt
+  source     String
+  weight     Int      @default(1)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  tags       tags     @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, tag_id])
+  @@index([tag_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                         BigInt                     @id @default(autoincrement())
+  public_id                                  String                     @unique @default(dbgenerated("uuidv7()")) @db.Uuid
+  oidc_subject                               String                     @unique
+  email                                      String                     @unique
+  display_name                               String
+  role                                       String
+  student_number                             String?                    @unique
+  phone                                      String?
+  is_active                                  Boolean                    @default(true)
+  last_login_at                              DateTime?                  @db.Timestamptz(6)
+  anonymized_at                              DateTime?                  @db.Timestamptz(6)
+  created_at                                 DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime                   @default(now()) @db.Timestamptz(6)
+  app_settings                               app_settings[]
+  applications                               applications[]
+  attendance_scans                           attendance_scans[]
+  attendances                                attendances[]
+  audit_log                                  audit_log[]
+  community_advisors                         community_advisors[]
+  community_members                          community_members[]
+  consents                                   consents[]
+  daily_ballots                              daily_ballots[]
+  data_requests                              data_requests[]
+  events_events_advisor_user_idTousers       events[]                   @relation("events_advisor_user_idTousers")
+  events_events_approved_by_user_idTousers   events[]                   @relation("events_approved_by_user_idTousers")
+  events_events_created_by_user_idTousers    events[]                   @relation("events_created_by_user_idTousers")
+  events_events_organizer_user_idTousers     events[]                   @relation("events_organizer_user_idTousers")
+  excuses_excuses_reviewed_by_user_idTousers excuses[]                  @relation("excuses_reviewed_by_user_idTousers")
+  excuses_excuses_student_user_idTousers     excuses[]                  @relation("excuses_student_user_idTousers")
+  leaderboard_snapshots                      leaderboard_snapshots[]
+  media_objects                              media_objects[]
+  notification_preferences                   notification_preferences[]
+  notifications                              notifications[]
+  ratings                                    ratings[]
+  reason_prompts                             reason_prompts[]
+  score_ledger                               score_ledger[]
+  score_rules                                score_rules[]
+  user_interests                             user_interests[]
+  votes                                      votes[]
+  voting_results                             voting_results[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model votes {
+  id              BigInt        @id @default(autoincrement())
+  student_user_id BigInt
+  daily_ballot_id BigInt
+  voting_date     DateTime      @db.Date
+  category        String
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  daily_ballots   daily_ballots @relation(fields: [daily_ballot_id, voting_date, category], references: [id, voting_date, category], onDelete: NoAction, onUpdate: NoAction, map: "votes_ballot_fk")
+  users           users         @relation(fields: [student_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([student_user_id, voting_date, category], map: "votes_one_per_day_category")
+  @@index([daily_ballot_id, voting_date, category], map: "votes_daily_ballot_id_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model voting_results {
+  id                     BigInt         @id @default(autoincrement())
+  voting_date            DateTime       @db.Date
+  category               String
+  status                 String
+  winning_ballot_id      BigInt?
+  total_votes            Int
+  tie_decided_by_user_id BigInt?
+  decided_at             DateTime       @default(now()) @db.Timestamptz(6)
+  users                  users?         @relation(fields: [tie_decided_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  daily_ballots          daily_ballots? @relation(fields: [winning_ballot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([voting_date, category], map: "voting_results_unique")
+  @@index([tie_decided_by_user_id])
+  @@index([winning_ballot_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model webhook_events {
+  provider          String
+  provider_event_id String
+  payload           Json
+  received_at       DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at      DateTime? @db.Timestamptz(6)
+
+  @@id([provider, provider_event_id])
+  @@index([received_at], map: "webhook_events_unprocessed_idx", where: raw("(processed_at IS NULL)"))
 }
