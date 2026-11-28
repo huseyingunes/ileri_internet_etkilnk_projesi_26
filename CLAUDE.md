@@ -129,8 +129,9 @@ WebSocket, MinIO, pnpm, dayjs, date-fns, GSAP (ESLint `no-restricted-imports` il
   ilk girişinde atanır. Depolama kovası özel.
 - Oturum çerezi `__Host-`, `Secure; HttpOnly; SameSite=Lax`; girişte yeni oturum kimliği;
   zaman aşımı pozitif. OIDC dönüşü GET (`form_post` yok). Çıkışta `Clear-Site-Data`.
-- **Yetki varsayılan olarak reddedilir** (`DefaultDenyGuard`). Her route `@Public()` ya da
-  `@Roles(...)` taşımak zorunda (Semgrep kuralı). Roller enum. Öğrenci kimliği oturumdan alınır;
+- **Yetki varsayılan olarak reddedilir** (`AuthGuard`, `apps/api/src/modules/identity`). Her route `@Public()` ya da
+  `@Roles(...)` (metotta ya da sınıfta) taşımak zorunda (Semgrep kuralı). Çağıran `@CurrentUser()` ile alınır; hız sınırı `@RateLimit(...)`.
+- Kimlik: Keycloak `/idp` altında demo üniversite SSO'su ([ADR 0011](docs/adr/0011-keycloak-demo-sso.md)); demo kullanıcılar `tools/demo/generate.py` ile üretilir, gizli değerler yalnızca `.env`'de. Oturum Redis'te, token'ın yalnızca SHA-256 özeti saklanır. Roller enum. Öğrenci kimliği oturumdan alınır;
   danışman yalnızca kendi etkinliklerine erişir.
 - Oy, QR doğrulama ve profil uç noktalarında Redis tabanlı hız sınırı.
 - Başlıklar (Caddy): sıkı CSP, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'self'`;
