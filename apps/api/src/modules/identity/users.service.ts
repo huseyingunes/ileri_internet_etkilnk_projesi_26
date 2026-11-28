@@ -144,6 +144,15 @@ export class UsersService {
     return new Map(rows.map((row) => [row.id, toSummary(row)]));
   }
 
+  /** Ids of active students (leaderboard candidates). */
+  async activeStudentIds(): Promise<bigint[]> {
+    const rows = await this.db.users.findMany({
+      where: { role: 'student', is_active: true, anonymized_at: null },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async listAdvisors(): Promise<{ items: UserSummary[] }> {
     const rows = await this.db.users.findMany({
       where: { role: 'advisor', is_active: true, anonymized_at: null },

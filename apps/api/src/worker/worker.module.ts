@@ -13,6 +13,8 @@ import { AttendanceModule } from '../modules/attendance/attendance.module.js';
 import { EventCompletedModule } from '../modules/attendance/event-completed.js';
 import { IdentityModule } from '../modules/identity/identity.module.js';
 import { MediaProcessor } from '../modules/media/media.processor.js';
+import { ScoringJobs } from '../modules/scoring/scoring.jobs.js';
+import { ScoringModule } from '../modules/scoring/scoring.module.js';
 import { SettingsModule } from '../modules/settings/settings.module.js';
 import { VotingCloser } from '../modules/voting/voting.closer.js';
 import { VotingModule } from '../modules/voting/voting.module.js';
@@ -40,6 +42,7 @@ export class WorkerModule {
         VotingModule,
         AttendanceModule,
         EventCompletedModule,
+        ScoringModule,
       ],
       providers: [
         JobRunnerService,
@@ -47,6 +50,7 @@ export class WorkerModule {
         MediaProcessor,
         VotingCloser,
         AttendanceFinalizer,
+        ScoringJobs,
       ],
     };
   }
