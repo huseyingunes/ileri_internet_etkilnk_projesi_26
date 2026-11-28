@@ -3,13 +3,18 @@ import { Redis } from 'ioredis';
 import { ENV } from '../config/config.module.js';
 import type { Env } from '../config/env.js';
 
-/** Creates a Redis connection suitable for both commands and BullMQ. */
-export function createRedisConnection(env: Env): Redis {
+/**
+ * Creates a Redis connection suitable for both commands and BullMQ.
+ * `blocking` is for a BullMQ Worker: it waits for jobs with blocking commands
+ * (BZPOPMIN) that legitimately outlast any command timeout, so only the
+ * connect timeout applies there. Every other connection fails fast.
+ */
+export function createRedisConnection(env: Env, options: { blocking?: boolean } = {}): Redis {
   return new Redis(env.REDIS_URL, {
-    // Required by BullMQ workers; commands still fail fast via the timeouts below.
+    // Required by BullMQ workers.
     maxRetriesPerRequest: null,
     connectTimeout: env.EXTERNAL_CALL_TIMEOUT_MS,
-    commandTimeout: env.EXTERNAL_CALL_TIMEOUT_MS,
+    ...(options.blocking === true ? {} : { commandTimeout: env.EXTERNAL_CALL_TIMEOUT_MS }),
     lazyConnect: false,
   });
 }

@@ -41,7 +41,7 @@ export class JobRunnerService implements OnApplicationBootstrap, OnApplicationSh
       connection: createRedisConnection(this.env),
     });
     this.worker = new Worker<unknown>(QUEUE_NAMES.system, (job) => this.process(job), {
-      connection: createRedisConnection(this.env),
+      connection: createRedisConnection(this.env, { blocking: true }),
       concurrency: this.env.WORKER_CONCURRENCY,
     });
     this.worker.on('failed', (job, error) => {
