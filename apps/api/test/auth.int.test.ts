@@ -148,6 +148,26 @@ describe('OIDC login and sessions', () => {
     expect(victim.cookie(appHost(), '__Host-session')).toBeUndefined();
   });
 
+  it("rejects an attacker's valid callback URL opened in another browser", async () => {
+    const attacker = new TestBrowser();
+    const start = await attacker.request(`${base}/api/v1/auth/login`);
+    const form = await attacker.request(start.headers.get('location') ?? '');
+    const submitted = await attacker.request(loginFormAction(await form.text()), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        username: demoUser('student', 8),
+        password: demoPassword,
+      }).toString(),
+    });
+    const callback = new URL(submitted.headers.get('location') ?? '');
+
+    const victim = new TestBrowser();
+    const forced = await victim.request(`${base}${callback.pathname}${callback.search}`);
+    expect(forced.headers.get('location')).toBe('/?giris=hata');
+    expect(victim.cookie(appHost(), '__Host-session')).toBeUndefined();
+  });
+
   it('refuses open redirects in returnTo', async () => {
     const response = await new TestBrowser().request(
       `${base}/api/v1/auth/login?returnTo=${encodeURIComponent('//evil.example')}`,

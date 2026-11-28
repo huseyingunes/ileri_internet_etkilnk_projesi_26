@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from '@nestjs/common';
 import { returnToSchema } from '@etkinlik/shared';
 import type { Request, Response } from 'express';
@@ -22,12 +22,6 @@ import { UsersService } from './users.service.js';
 const loginQuerySchema = z.object({ returnTo: returnToSchema.optional() });
 const LOGIN_FAILED_PATH = '/?giris=hata';
 
-function sameSecret(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -46,7 +40,9 @@ export class AuthController {
   async login(@Query() query: unknown, @Res() response: Response): Promise<void> {
     const { returnTo } = loginQuerySchema.parse(query);
     const request = await this.oidc.createAuthorizationRequest();
-    await this.loginStates.save(request.state, {
+    const loginId = randomBytes(32).toString('base64url');
+    await this.loginStates.save(loginId, {
+      state: request.state,
       codeVerifier: request.codeVerifier,
       nonce: request.nonce,
       returnTo: returnTo ?? '/',
@@ -54,7 +50,7 @@ export class AuthController {
     // Binds the flow to this browser (login CSRF protection). Lax: sent on the IdP redirect back.
     response.setHeader(
       'Set-Cookie',
-      serializeHostCookie(LOGIN_STATE_COOKIE, request.state, {
+      serializeHostCookie(LOGIN_STATE_COOKIE, loginId, {
         sameSite: 'Lax',
         maxAgeSeconds: LOGIN_STATE_TTL_SECONDS,
       }),
@@ -71,17 +67,15 @@ export class AuthController {
     const cookies = [expireHostCookie(LOGIN_STATE_COOKIE)];
     try {
       const callbackUrl = new URL(request.originalUrl, this.env.APP_ORIGIN);
-      const state = callbackUrl.searchParams.get('state') ?? '';
-      const boundState = readCookie(request, LOGIN_STATE_COOKIE) ?? '';
-      if (state === '' || !sameSecret(state, boundState)) {
-        throw new Error('login state does not match this browser');
-      }
-      const saved = await this.loginStates.consume(state);
+      // The login attempt is looked up by the random id this browser got at /auth/login,
+      // never by request parameters; openid-client then checks the returned `state`
+      // against the value the server stored (login CSRF protection).
+      const saved = await this.loginStates.consume(readCookie(request, LOGIN_STATE_COOKIE) ?? '');
       if (saved === undefined) {
-        throw new Error('login state expired or already used');
+        throw new Error('no pending login for this browser (expired or already used)');
       }
       const claims = await this.oidc.completeAuthorization(callbackUrl, {
-        state,
+        state: saved.state,
         nonce: saved.nonce,
         codeVerifier: saved.codeVerifier,
       });
