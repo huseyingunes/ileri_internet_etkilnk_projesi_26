@@ -8,6 +8,9 @@ import { JobRegistryModule, QueueModule } from '../infra/queue.js';
 import { RedisModule } from '../infra/redis.js';
 import { StorageModule } from '../infra/storage.js';
 import { ApplicationsQueryModule } from '../modules/applications/applications.query.js';
+import { AttendanceFinalizer } from '../modules/attendance/attendance.finalizer.js';
+import { AttendanceModule } from '../modules/attendance/attendance.module.js';
+import { EventCompletedModule } from '../modules/attendance/event-completed.js';
 import { IdentityModule } from '../modules/identity/identity.module.js';
 import { MediaProcessor } from '../modules/media/media.processor.js';
 import { SettingsModule } from '../modules/settings/settings.module.js';
@@ -35,8 +38,16 @@ export class WorkerModule {
         ApplicationsQueryModule,
         SettingsModule,
         VotingModule,
+        AttendanceModule,
+        EventCompletedModule,
       ],
-      providers: [JobRunnerService, WorkerHealthServer, MediaProcessor, VotingCloser],
+      providers: [
+        JobRunnerService,
+        WorkerHealthServer,
+        MediaProcessor,
+        VotingCloser,
+        AttendanceFinalizer,
+      ],
     };
   }
 }

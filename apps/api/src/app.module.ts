@@ -13,6 +13,7 @@ import { StorageModule } from './infra/storage.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
 import { ApplicationsQueryModule } from './modules/applications/applications.query.js';
 import { CommunitiesModule } from './modules/communities/communities.module.js';
+import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AuthGuard } from './modules/identity/auth.guard.js';
@@ -46,6 +47,7 @@ export class AppModule {
         SettingsModule,
         VotingModule,
         ApplicationsModule,
+        AttendanceModule,
       ],
       providers: [
         // Order matters: authentication/authorization first, then per-user rate limits.
